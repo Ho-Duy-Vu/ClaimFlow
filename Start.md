@@ -8,7 +8,7 @@
 ## 1. Hạ tầng (Docker — chạy 1 lần, để nền)
 
 ```bash
-cd C:/DuyVu-CoverGo/AI-Claims-Processing-Assistant
+cd C:/Project/AI-Claims-Processing-Assistant
 docker compose up -d
 docker compose ps        # verify mongodb, redis, qdrant, minio đều "healthy"
 ```
@@ -32,7 +32,7 @@ docker compose ps        # verify mongodb, redis, qdrant, minio đều "healthy"
 ## 2. Backend API (Terminal 2)
 
 ```bash
-cd C:/DuyVu-CoverGo/AI-Claims-Processing-Assistant/backend
+cd C:/Project/AI-Claims-Processing-Assistant/backend
 # Lần đầu / sau khi đổi dependency:
 # python -m venv venv && source venv/Scripts/activate && pip install -r requirements.txt
 source venv/Scripts/activate
@@ -46,7 +46,7 @@ Health check: http://localhost:8000/docs
 ## 3. Celery worker (Terminal 3 — bắt buộc cho OCR + ingest policy)
 
 ```bash
-cd C:/DuyVu-CoverGo/AI-Claims-Processing-Assistant/backend
+cd C:/Project/AI-Claims-Processing-Assistant/backend
 source venv/Scripts/activate
 celery -A app.tasks worker --loglevel=info --pool=solo    # --pool=solo cần thiết trên Windows
 ```
@@ -60,7 +60,7 @@ celery -A app.tasks worker --loglevel=info --pool=solo    # --pool=solo cần th
 ## 4. Frontend (Terminal 4)
 
 ```bash
-cd C:/DuyVu-CoverGo/AI-Claims-Processing-Assistant/frontend
+cd C:/Project/AI-Claims-Processing-Assistant/frontend
 npm run dev
 ```
 
@@ -71,7 +71,7 @@ App: http://localhost:3000/vi (default locale `vi`, switch sang `/en` qua Langua
 ## 5. Seed dữ liệu (chỉ lần đầu, hoặc khi reset DB)
 
 ```bash
-cd C:/DuyVu-CoverGo/AI-Claims-Processing-Assistant/backend
+cd C:/Project/AI-Claims-Processing-Assistant/backend
 source venv/Scripts/activate
 python scripts/seed.py                  # base: users + 63 tỉnh geo_risks + policies
 python scripts/seed_demo_data.py        # +12 users, ~30 policies, ~80 claims, docs, chats, audit logs

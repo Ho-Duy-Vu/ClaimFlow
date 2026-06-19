@@ -8,7 +8,7 @@
 
 ClaimFlow là ứng dụng insurtech tích hợp AI giúp người dùng Việt Nam hiểu rõ rủi ro thiên tai tại địa phương, xử lý tài liệu bảo hiểm tự động, và nhận tư vấn gói bảo hiểm phù hợp — tất cả trong một nền tảng duy nhất.
 
-Dự án được xây dựng trong context của CoverGo (insurtech), tích hợp các khái niệm System Design thực tế: LangGraph agent, RAG pipeline, event-driven architecture, message queue, WebSocket, và containerization.
+Dự án là một sản phẩm insurtech cá nhân, tích hợp các khái niệm System Design thực tế: LangGraph agent, RAG pipeline, event-driven architecture, message queue, WebSocket, và containerization.
 
 ---
 
@@ -567,8 +567,8 @@ RESEND_API_KEY=re_...
 
 ## Tác giả
 
-**Hồ Duy Vũ** — AI Engineer Intern @ CoverGo
-vu.hoduy@covergo.com
+**Hồ Duy Vũ** — AI Engineer
+duyvu11092004@gmail.com
 
 ---
 

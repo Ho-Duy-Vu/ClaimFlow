@@ -308,7 +308,7 @@ Layer 2: System prompt kết thúc bằng reinforcement:
 **Vấn đề:**
 ClaimFlow phục vụ thị trường Việt Nam nhưng cần hỗ trợ tiếng Anh để:
 - Demo cho mentor / interviewer quốc tế dễ hiểu hơn
-- CoverGo là công ty đa quốc gia — có thể expand thị trường
+- Sẵn sàng mở rộng ra thị trường quốc tế
 
 **Tại sao next-intl thay vì các lựa chọn khác:**
 

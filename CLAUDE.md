@@ -11,8 +11,8 @@
 2. **Geo Risk Intelligence** — Phân tích rủi ro thiên tai theo tỉnh/vùng miền, bản đồ Leaflet
 3. **AI Chatbot** — Tư vấn bảo hiểm 24/7, bảo vệ PII, tư vấn theo vùng miền
 
-**Domain:** Insurtech — CoverGo
-**Developer:** Hồ Duy Vũ — AI Engineer Intern
+**Domain:** Insurtech
+**Developer:** Hồ Duy Vũ — AI Engineer
 
 ---
 
