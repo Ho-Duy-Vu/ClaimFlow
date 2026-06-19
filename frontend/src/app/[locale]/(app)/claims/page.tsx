@@ -1,11 +1,12 @@
 import { getTranslations } from 'next-intl/server';
+import { ClaimsClient } from './ClaimsClient';
 
 export default async function ClaimsPage() {
-  const t = await getTranslations('nav');
+  const tNav = await getTranslations('nav');
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('claims')}</h1>
-      <p className="text-gray-400 text-sm">— TASK-017 —</p>
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold text-gray-900">{tNav('claims')}</h1>
+      <ClaimsClient />
     </div>
   );
 }

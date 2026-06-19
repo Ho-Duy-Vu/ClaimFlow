@@ -54,6 +54,19 @@ def get_presigned_url(file_key: str, expires_in: int = 3600) -> str:
     )
 
 
+async def download_file(file_key: str) -> bytes:
+    client = _make_client()
+    bucket = settings.AWS_BUCKET_NAME
+    buf = io.BytesIO()
+
+    def _run():
+        client.download_fileobj(bucket, file_key, buf)
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _run)
+    return buf.getvalue()
+
+
 async def delete_file(file_key: str) -> None:
     client = _make_client()
     bucket = settings.AWS_BUCKET_NAME

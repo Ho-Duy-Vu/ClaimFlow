@@ -15,7 +15,11 @@ Yêu cầu:
 import asyncio
 import os
 import re
+import sys
 import uuid
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,8 +27,8 @@ load_dotenv()
 CHUNK_SIZE = 500        # Số token mỗi chunk (xấp xỉ 400 words)
 CHUNK_OVERLAP = 50      # Overlap giữa các chunk
 COLLECTION_NAME = "insurance_policies"
-EMBEDDING_MODEL = "models/text-embedding-004"
-EMBEDDING_DIM = 768     # text-embedding-004 dimension
+EMBEDDING_MODEL = "models/gemini-embedding-001"  # text-embedding-004 đã deprecated 2026
+EMBEDDING_DIM = 3072    # gemini-embedding-001 dimension
 
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
@@ -81,9 +85,10 @@ async def ingest():
 
     print("\n📚 ClaimFlow — Ingesting policies vào Qdrant...\n")
 
-    # Connect MongoDB
-    mongo = AsyncIOMotorClient("mongodb://admin:admin@localhost:27017")
-    db = mongo["claimflow_db"]
+    # Connect MongoDB — use the same URL as the FastAPI app
+    from app.core.config import settings
+    mongo = AsyncIOMotorClient(settings.MONGODB_URL)
+    db = mongo[settings.MONGODB_DB_NAME]
 
     # Connect Qdrant
     qdrant = QdrantClient(host="localhost", port=6333)

@@ -11,6 +11,7 @@
 users         ── claims (ref)
 users         ── documents (ref)
 users         ── chat_sessions (ref)
+users         ── user_policies (ref)
 documents     ── claims.documents (embedded ref)
 policies      ── Qdrant vectors (ingested separately)
 geo_risks     ── standalone (province static + dynamic data)
@@ -142,7 +143,7 @@ class Document(Document):
 class Claim(Document):
     user_id: str
     status: Literal["pending","processing","approved","rejected","manual_review"] = "pending"
-    claim_type: Literal["medical","dental","hospitalization","medication","disaster"]
+    claim_type: Literal["health","life","property","vehicle","disaster","income"]
 
     amount_claimed: float
     amount_approved: float | None = None
@@ -176,6 +177,79 @@ class Claim(Document):
             ("province", 1), ("created_at", -1),
             [("user_id", 1), ("status", 1)],
         ]
+```
+
+**Claim types:**
+
+| claim_type | Mô tả |
+|---|---|
+| `health` | Bảo hiểm sức khỏe — khám chữa bệnh, nội trú, phẫu thuật |
+| `life` | Bảo hiểm nhân thọ — tử vong, thương tật vĩnh viễn |
+| `property` | Bảo hiểm tài sản — nhà ở, đồ dùng, thiệt hại |
+| `vehicle` | Bảo hiểm xe cộ — tai nạn, va chạm, trộm cắp |
+| `disaster` | Bảo hiểm thiên tai — bão, lũ, sạt lở, ngập úng |
+| `income` | Bảo hiểm thu nhập & an sinh xã hội |
+
+---
+
+## Collection: `user_policies`
+
+Gói bảo hiểm đang active của từng user — được tạo qua Insurance Registration Flow.
+
+```python
+class UserPolicy(Document):
+    user_id: str
+    policy_number: str          # Auto-gen: CF-HEA-XXXXXXXX, CF-LIF-XXXXXXXX...
+    policy_type: Literal[
+        "health", "life", "property", "vehicle", "disaster", "income"
+    ]
+    plan_name: str              # "Sức Khỏe Cơ Bản", "Nhân Thọ Bảo Vệ", "Thiên Tai Toàn Diện"...
+    description: str
+    insurer: str = "ClaimFlow Insurance"
+    coverage_amount: float      # Số tiền bảo hiểm tối đa (VND)
+    annual_premium: float       # Phí bảo hiểm hàng năm (VND)
+    status: Literal["active", "expired", "cancelled"] = "active"
+    start_date: datetime
+    end_date: datetime          # start_date + 1 năm
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "user_policies"
+        indexes = [
+            ("user_id", 1),
+            ("policy_type", 1),
+            ("status", 1),
+            ("end_date", 1),    # Cho expiry check
+        ]
+```
+
+### Policy Number Format
+
+```
+CF-{TYPE_PREFIX}-{8 ký tự random}
+
+health   → CF-HEA-XXXXXXXX
+life     → CF-LIF-XXXXXXXX
+property → CF-PRO-XXXXXXXX
+vehicle  → CF-VEH-XXXXXXXX
+disaster → CF-DIS-XXXXXXXX
+income   → CF-INC-XXXXXXXX
+```
+
+### Catalog gói bảo hiểm (3 gói mỗi loại)
+
+**health:**
+```
+Cơ Bản:   coverage 100M,  premium 2.4M/năm
+Nâng Cao: coverage 300M,  premium 6M/năm
+Toàn Diện: coverage 500M, premium 12M/năm
+```
+
+**disaster:**
+```
+Cơ Bản:   coverage 50M,   premium 1.8M/năm
+Nâng Cao: coverage 150M,  premium 4.8M/năm
+Toàn Diện: coverage 300M, premium 9.6M/năm
 ```
 
 ---
@@ -281,7 +355,7 @@ RAG source — được ingest vào Qdrant.
 class Policy(Document):
     title: str
     content: str               # Full text cho chunking
-    category: str              # "medical", "disaster", "life", "property"
+    category: str              # "health", "disaster", "life", "property", "vehicle", "income"
     coverage_types: list[str]  # ["flood", "storm", "landslide"]
     version: str
     is_active: bool = True
@@ -290,60 +364,6 @@ class Policy(Document):
     class Settings:
         name = "policies"
         indexes = [("category", 1), ("is_active", 1)]
-```
-
----
-
-## Setup MongoDB
-
-```yaml
-# docker-compose.yml
-mongodb:
-  image: mongo:7.0
-  ports: ["27017:27017"]
-  environment:
-    MONGO_INITDB_ROOT_USERNAME: admin
-    MONGO_INITDB_ROOT_PASSWORD: admin
-    MONGO_INITDB_DATABASE: claimflow_db
-  volumes: [mongodb_data:/data/db]
-```
-
-```python
-# app/core/database.py
-async def init_db(mongodb_url: str, db_name: str):
-    client = AsyncIOMotorClient(mongodb_url)
-    await init_beanie(
-        database=client[db_name],
-        document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy],
-    )
-```
-
-```env
-MONGODB_URL=mongodb://admin:admin@localhost:27017
-MONGODB_DB_NAME=claimflow_db
-```
-
----
-
-## Query thường dùng
-
-```python
-# Lấy risk data theo province
-risk = await GeoRisk.find_one(GeoRisk.province_name == province_name)
-
-# Lấy all high-risk provinces cho map
-high_risk = await GeoRisk.find(GeoRisk.is_high_risk == True).to_list()
-
-# Chat session của user (latest first)
-sessions = await ChatSession.find(
-    ChatSession.user_id == user_id
-).sort(-ChatSession.updated_at).to_list()
-
-# Claims theo status + province
-claims = await Claim.find(
-    Claim.user_id == user_id,
-    Claim.province == province
-).sort(-Claim.created_at).to_list()
 ```
 
 ---
@@ -395,6 +415,78 @@ async def change_user_role(admin_id: str, target_user_id: str, new_role: str):
         target_id=target_user_id,
         details={"old_role": old_role, "new_role": new_role}
     ).insert()
+```
+
+---
+
+## Setup MongoDB
+
+```yaml
+# docker-compose.yml
+mongodb:
+  image: mongo:7.0
+  ports: ["27017:27017"]
+  environment:
+    MONGO_INITDB_ROOT_USERNAME: admin
+    MONGO_INITDB_ROOT_PASSWORD: admin
+    MONGO_INITDB_DATABASE: claimflow_db
+  volumes: [mongodb_data:/data/db]
+```
+
+```python
+# app/core/database.py
+async def init_db(mongodb_url: str, db_name: str):
+    client = AsyncIOMotorClient(mongodb_url)
+    await init_beanie(
+        database=client[db_name],
+        document_models=[
+            User, Document, Claim,
+            GeoRisk, ChatSession,
+            Policy, UserPolicy,    # UserPolicy thêm mới
+            AuditLog,
+        ],
+    )
+```
+
+```env
+MONGODB_URL=mongodb://admin:admin@localhost:27017
+MONGODB_DB_NAME=claimflow_db
+```
+
+---
+
+## Query thường dùng
+
+```python
+# Lấy risk data theo province
+risk = await GeoRisk.find_one(GeoRisk.province_name == province_name)
+
+# Lấy all high-risk provinces cho map
+high_risk = await GeoRisk.find(GeoRisk.is_high_risk == True).to_list()
+
+# Chat session của user (latest first)
+sessions = await ChatSession.find(
+    ChatSession.user_id == user_id
+).sort(-ChatSession.updated_at).to_list()
+
+# Claims theo status + province
+claims = await Claim.find(
+    Claim.user_id == user_id,
+    Claim.province == province
+).sort(-Claim.created_at).to_list()
+
+# UserPolicies active của user
+active_policies = await UserPolicy.find(
+    UserPolicy.user_id == user_id,
+    UserPolicy.status == "active"
+).to_list()
+
+# Check user có policy active không trước khi submit claim
+has_active = await UserPolicy.find_one(
+    UserPolicy.user_id == user_id,
+    UserPolicy.status == "active",
+    UserPolicy.end_date >= datetime.utcnow()
+)
 ```
 
 ---

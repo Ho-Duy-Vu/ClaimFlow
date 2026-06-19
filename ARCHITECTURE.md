@@ -12,17 +12,16 @@ Client (Next.js 14)
       ▼
 API Layer (FastAPI)
       │
-      ├── Sync:  Auth · Geo Risk · Chatbot · Analytics
+      ├── Sync:  Auth · Geo Risk · Chatbot · Analytics · UserPolicy
       └── Async: Upload doc → Redis Queue → Celery Worker
                                                   │
                                         LangGraph Agent
-                                        ┌─────────────────┐
-                                        │ 1. Gemini Vision │ OCR
-                                        │ 2. Merge + dedup │
-                                        │ 3. RAG policy    │
-                                        │ 4. Fraud detect  │
-                                        │ 5. Decision      │
-                                        └─────────────────┘
+                                        ┌──────────────────────┐
+                                        │ 1. extract_data      │ OCR parse
+                                        │ 2. check_coverage    │ RAG policy
+                                        │ 3. fraud_detection   │ Score 0-100
+                                        │ 4. make_decision     │ approve/reject
+                                        └──────────────────────┘
                                                   │
                                      MongoDB + WebSocket push
 ```
@@ -128,6 +127,14 @@ Upload CCCD + hợp đồng bảo hiểm cần: OCR từng file → merge → va
 - Loop về OCR step nếu confidence thấp
 - Parallel: OCR nhiều file cùng lúc (LangGraph hỗ trợ parallel node)
 - Conditional: nếu CCCD thì extract khác, hợp đồng thì extract khác
+
+**4 nodes thực tế:**
+```
+extract_data    → parse structured data từ OCR text (Gemini Flash)
+check_coverage  → RAG Qdrant search → is_covered + coverage_limit
+fraud_detection → anomaly check + duplicate detection → score 0-100
+make_decision   → approve / reject / manual_review / need_more_info
+```
 
 ---
 
@@ -331,6 +338,160 @@ common · nav · auth · documents · claims · geo · chatbot · admin · error
 
 ---
 
+## Quyết định 14: GeoJSON UTM48N → WGS84 Conversion
+
+**Vấn đề:**
+GeoJSON nguồn từ Highcharts dùng tọa độ UTM Zone 48N (Easting/Northing tính bằng mét), không phải WGS84 (longitude/latitude). Leaflet yêu cầu WGS84, nên bản đồ render sai vị trí hoàn toàn.
+
+**Triệu chứng:** Provinces hiển thị ở giữa đại dương thay vì trên đất liền Việt Nam.
+
+**Phân tích tọa độ:**
+```python
+# UTM format trong GeoJSON gốc:
+# x ≈ 100–109 (đã scale, thực ra là Easting / scale_factor)
+# y ≈ 8–24 (Northing scaled)
+# Formula: utm_coord = (raw_value - jsonmargin) / (scale * jsonres) + offset
+```
+
+**Giải pháp:**
+```python
+# backend/scripts/build_vn_geojson.py
+from pyproj import Transformer
+
+transformer = Transformer.from_crs("EPSG:32648", "EPSG:4326", always_xy=True)
+
+def convert_coords(coords):
+    return [list(transformer.transform(x, y)) for x, y in coords]
+```
+
+**Output:** `frontend/public/vietnam-provinces.geojson` — 72KB static file thay thế URL remote.
+
+**Trade-off:**
+File static cần rebuild nếu có thay đổi ranh giới hành chính. Acceptable vì ranh giới tỉnh hầu như không thay đổi.
+
+---
+
+## Quyết định 15: Insurance Registration Flow từ Documents Page
+
+**Vấn đề:**
+User upload CCCD để OCR nhưng không biết bước tiếp theo là gì. Luồng "upload tài liệu → đăng ký bảo hiểm → submit claim" bị rời rạc.
+
+**Thiết kế luồng liền mạch:**
+```
+OCR done → nút "Đăng ký bảo hiểm" xuất hiện ngay trong Documents page
+    → InsuranceRegistrationModal mở
+    → pre-fill thông tin từ structured_data
+    → auto-detect tỉnh → fetch risk score → gợi ý gói
+    → user chọn gói → purchase → active policy
+    → có thể submit claim ngay
+```
+
+**Lý do tích hợp vào Documents page thay vì trang riêng:**
+- Giảm số bước user phải thực hiện (không phải navigate sang trang khác)
+- Context rõ ràng: thông tin OCR vừa xong → đăng ký ngay với dữ liệu đó
+- Pre-fill giảm friction đáng kể (không cần nhập lại tên, ngày sinh, địa chỉ)
+
+**Trade-off:**
+Documents page phức tạp hơn. Giải quyết bằng cách đưa toàn bộ modal logic vào component `InsuranceRegistrationModal.tsx` riêng biệt.
+
+---
+
+## Quyết định 16: 6-type Insurance Redesign
+
+**Hệ thống cũ (5 types):**
+```
+medical / dental / hospitalization / medication / disaster
+```
+
+**Vấn đề với hệ thống cũ:**
+- `medical`, `dental`, `hospitalization`, `medication` quá granular — thực tế đều là healthcare
+- Không cover các rủi ro quan trọng: tài sản, xe cộ, thu nhập
+- Không align với catalog gói bảo hiểm thực tế của thị trường Việt Nam
+
+**Hệ thống mới (6 types):**
+```
+health / life / property / vehicle / disaster / income
+```
+
+**Lý do chọn 6 nhóm này:**
+- `health`: gộp toàn bộ y tế (outpatient + inpatient + dental) thành 1 nhóm đơn giản hơn
+- `life`: bảo vệ gia đình khi chủ hộ gặp nạn — nhu cầu rất cao ở VN
+- `property`: nhà ở + đồ dùng — quan trọng với vùng thiên tai
+- `vehicle`: nhu cầu cao (xe máy là phương tiện chính)
+- `disaster`: giữ nguyên vì đây là focus chính của ClaimFlow
+- `income`: mất việc/tai nạn lao động — nhu cầu thực tế
+
+**Impact:** Cập nhật `claim_type` field trong Claim model + toàn bộ validation logic. Migration cần làm cho records cũ: `medical/dental/hospitalization/medication → health`. Đã chạy migration MongoDB script trong phiên dev 2026-05-29.
+
+---
+
+## Quyết định 17: Dashboard vs Analytics — phân biệt rõ vai trò
+
+**Vấn đề ban đầu:** Dashboard chỉ là stub 4 cards "—" với label hardcode tiếng Việt. Analytics đã có 4 metric cards thật + charts đầy đủ. Người dùng vào Dashboard thấy trống → tưởng app lỗi. Hai trang trùng khái niệm.
+
+**Quyết định phân chia:**
+
+| | **Dashboard** (homepage `/dashboard`) | **Analytics** (deep dive `/analytics`) |
+|---|---|---|
+| Mục đích | Snapshot cá nhân + thao tác nhanh sau login | Phân tích số liệu theo thời gian |
+| Dữ liệu | Personal state hiện tại (active, pending) | Aggregated metrics (rate, avg, trends) |
+| Tính tương tác | Quick-action tiles → link sang nơi khác | Stats-only, không có action |
+| Khác biệt theo role | Snapshot card khác nhau theo role | Backend scope tự động theo role |
+
+**Dashboard render conditional theo role:**
+- user: Active Claims · Active Policies · Area Risk Score (theo tỉnh) · Deep-dive link
+- reviewer/admin: + Pending Review queue counter
+- admin only: + thêm action tile "Manage Users"
+
+**Lý do tách:** Dashboard là "Now state + next actions" (operational); Analytics là "Trends over time" (analytical). Không có card nào trùng.
+
+---
+
+## Quyết định 18: Chatbot full-page thay floating widget
+
+**Vấn đề:** Floating bubble `ChatWidget.tsx` đặt ở `layout.tsx`, hiện trên mọi page → che content, không có URL riêng để bookmark/share, chat history bị giới hạn trong popup 360px×520px.
+
+**Quyết định:** Xóa bubble, build trang riêng `/chatbot` với:
+- Full-page chat với `h-full -m-6` để fill toàn bộ main area
+- Header với clear-session button + privacy badge
+- Messages area scroll riêng (max-width 3xl centered cho dễ đọc)
+- Welcome block lớn với icon gradient khi session trống
+- Typing indicator 3 dots animate (UX tốt hơn loader spinner)
+- Suggestion chips chỉ hiện khi messages.length === 0
+- localStorage persist session_id giữa các lần navigate
+
+**Lý do:** Trải nghiệm gần với ChatGPT/Claude.ai hơn, đỡ tốn không gian màn hình, dễ bookmark/share, chat history scroll thoải mái. Sidebar đã có sẵn link `nav.chatbot` (icon MessageCircle).
+
+---
+
+## Quyết định 19: Trang `/policies` riêng để mua bảo hiểm
+
+**Vấn đề:** UI mua bảo hiểm chỉ có ở `InsuranceRegistrationModal` mở từ Documents page sau khi OCR done → user không có cách nào browse plans nếu không upload doc. Dashboard hiển thị "Active Policies" mà user không biết cách thêm mới.
+
+**Quyết định:** Tạo route `/policies` riêng với 2 tabs:
+- **Tab "Gói của tôi":** grid card với gradient header theo loại (Heart đỏ = health, Home xanh = property...), filter Active/Expired/Cancelled, "còn X ngày" badge với màu cam khi gần hết hạn, nút Cancel có confirm dialog
+- **Tab "Mua gói mới":** type selector grid 6 ô, hiện 3 plans cho loại đã chọn, đánh dấu type đã sở hữu (icon CheckCircle xanh + chip "Đã có gói loại này") để tránh mua trùng
+
+**Sidebar:** thêm icon `Shield` vào giữa Claims và Analytics, label `nav.policies` (Bảo hiểm / Insurance), hiển thị cho cả 3 role.
+
+**Backend không thay đổi** — vẫn dùng existing endpoints `GET /policies`, `GET /policies/plans`, `POST /policies/purchase`, `DELETE /policies/{id}`. `InsuranceRegistrationModal` vẫn giữ trong Documents page như con đường nhanh khi vừa OCR xong.
+
+---
+
+## Quyết định 20: Role-based Sidebar (frontend filter + backend RBAC defense-in-depth)
+
+**Vấn đề:** Sidebar hardcode 8 nav items cho tất cả users — `/admin` và `/reviewer` hiện cả với role `user` → click vào sẽ bị backend reject 403, UX bad.
+
+**Quyết định:** Defense-in-depth 3 lớp:
+
+1. **Frontend Sidebar filter:** `Sidebar.tsx` gọi `/auth/me` ở mount, lọc nav links theo array `allowed: Role[]`. Loading state hiện skeleton để tránh flash content sai.
+2. **Frontend page guard:** `AdminClient`/`ReviewerClient` tự gọi `/auth/me` ở mount, redirect về `/dashboard` nếu role sai (tránh trường hợp user gõ URL trực tiếp).
+3. **Backend RBAC:** Dependency `require_admin` / `require_reviewer` trả 403. Frontend không cần biết — backend là source of truth.
+
+**Bonus:** Footer Sidebar hiện tên/email user + role badge (xanh user / cam reviewer / đỏ admin) + nút Logout → cải thiện trải nghiệm so với layout cũ chỉ có nav.
+
+---
+
 ## V1 → V2 Scale Path
 
 | Component | V1 (Demo) | V2 (Scale) |
@@ -343,3 +504,4 @@ common · nav · auth · documents · claims · geo · chatbot · admin · error
 | Map data | Static province JSON | Real-time weather API integration |
 | Orchestration | Docker Compose | Kubernetes |
 | Monitoring | Logs only | Prometheus + Grafana |
+| GeoJSON | Static file 72KB | PostGIS với dynamic boundary queries |

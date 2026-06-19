@@ -36,20 +36,41 @@ Infra:     Docker Compose
 
 ```
 backend/app/
-├── api/routes/      auth · documents · geo_risk · chatbot · claims · analytics · reviewer · admin
+├── api/routes/      auth · documents · geo_risk · chatbot · claims · user_policies
+│                   analytics · reviewer · admin
 ├── core/            config · security (JWT+bcrypt) · database (MongoDB) · middleware · rate_limit
-├── models/          user · document · claim · geo_risk · chat_session · policy · audit_log
-├── schemas/         auth · (per feature)
+├── models/          user · document · claim · geo_risk · chat_session · policy · audit_log · user_policy
+├── schemas/         auth · document
 ├── services/
-│   ├── ai/          agent · nodes · rag · ocr · merger · chatbot
-│   ├── geo/         province_data · risk_engine
-│   └── province_mapper.py
-└── tasks/           document_processor (Celery)
+│   ├── ai/          agent · ocr · merger · chatbot
+│   ├── geo/         risk_engine (incl. province_data, _normalize_vn, aliases)
+│   ├── province_mapper.py
+│   └── storage.py
+└── tasks/           document_processor (Celery: process_document, process_claim, ingest_policy_to_qdrant)
 
 frontend/src/
-├── app/[locale]/    (auth) · dashboard · documents · risk-map · claims · analytics · admin · reviewer
-├── components/      documents · risk-map · chatbot · layout/LanguageSwitcher · ui
-├── messages/        vi.json (default) · en.json
+├── app/[locale]/
+│   ├── (auth)/      login · register
+│   └── (app)/       layout với Sidebar role-based + LanguageSwitcher (KHÔNG còn ChatWidget bubble)
+│       ├── dashboard/      DashboardClient — welcome + snapshots + recent claims + quick actions
+│       ├── documents/      DocumentsClient — upload + OCR + merge + InsuranceRegistrationModal
+│       ├── risk-map/       RiskMapClient — Leaflet choropleth
+│       ├── claims/         ClaimsClient — list + submit modal + detail modal + WebSocket
+│       ├── policies/       PoliciesClient — Tab "Gói của tôi" + Tab "Mua gói mới"
+│       ├── analytics/      AnalyticsClient — 4 metric cards + daily/region/disaster/type charts (SVG)
+│       ├── chatbot/        ChatbotClient — full-page chat (thay cho ChatWidget bubble cũ)
+│       ├── reviewer/       ReviewerClient — queue + stats + detail panel với Approve/Reject
+│       └── admin/          AdminClient — 5 tabs (Users · Analytics · Policies · Audit Logs · Health)
+├── components/
+│   ├── documents/   InsuranceRegistrationModal, các sub-component upload/merge
+│   ├── risk-map/    LeafletMap
+│   ├── layout/      Sidebar (role-based + logout), LanguageSwitcher
+│   ├── ui/          shadcn (button, card, input, label, skeleton)
+│   └── ErrorBoundary.tsx
+├── messages/        vi.json (default) · en.json — namespaces: common, nav, auth, documents, claims,
+│                    geo, chatbot, admin, reviewer, analytics, policies, dashboard, errors
+├── lib/             api.ts (axios + CSRF), provinces.ts, utils.ts
+├── types/           index.ts (User, Claim, UserPolicy, DocumentRecord, GeoRisk)
 ├── i18n.ts          next-intl config
 └── middleware.ts    locale detection + routing
 ```
@@ -117,7 +138,10 @@ frontend/src/
 
 ```env
 GEMINI_API_KEY=AIza...
-MONGODB_URL=mongodb://admin:admin@localhost:27017
+# Local MongoDB không auth (dùng cho dev nhanh — match .env hiện tại):
+MONGODB_URL=mongodb://localhost:27017
+# Docker mongo từ docker-compose.yml ở port 27018 cần auth admin:admin
+# MONGODB_URL=mongodb://admin:admin@localhost:27018
 MONGODB_DB_NAME=claimflow_db
 REDIS_URL=redis://localhost:6379
 SECRET_KEY=change-this-in-production
@@ -152,14 +176,17 @@ RESEND_API_KEY=re_...
 ## Collections MongoDB (tóm tắt)
 
 ```
-users        → auth, role (user/reviewer/admin)
-documents    → OCR result, extracted_data, merged_data, file_key, file_hash
-claims       → status, ai_decision, fraud_score, documents (embedded)
-geo_risks    → province, risk_scores, disaster_types, recommendations
-chat_sessions→ user_id, messages[] (max 50), context
-policies     → RAG source (ingested vào Qdrant)
-audit_logs   → mọi action admin: role_change, policy_upload, claim_override...
+users           → auth, role (user/reviewer/admin), province, is_active
+documents       → OCR result, extracted_data, merged_data, file_key, file_hash, ocr_confidence
+claims          → status, claim_type, ai_decision, fraud_score, reviewer_note, documents (embedded)
+geo_risks       → province, risk_scores, disaster_types, recommendations (63 tỉnh seeded)
+chat_sessions   → user_id, messages[] (max 50), context
+policies        → RAG source (ingested vào Qdrant, chunk_count, last_ingested)
+user_policies   → gói bảo hiểm user đã mua (policy_type ∈ 6 loại mới, status active|expired|cancelled)
+audit_logs      → mọi action admin: role_change, user_deactivate/activate, policy_upload/delete, claim_override
 ```
+
+**Lưu ý migration:** Type cũ `medical/dental/hospitalization/medication` đã được migrate sang `health` (xem `claim_type` + `policy_type`). Nếu thấy DB còn record cũ, chạy lại `db.user_policies.updateMany({policy_type: 'hospitalization'}, {$set: {policy_type: 'health'}})`.
 
 ---
 
@@ -182,25 +209,38 @@ POST  /chatbot/message           Gửi message, nhận AI response
 GET   /chatbot/session/{id}      Lịch sử conversation
 DELETE/chatbot/session/{id}      Xóa session
 
-POST  /claims/submit             Submit claim (file + metadata)
-GET   /claims · /claims/{id}
+POST  /claims/submit             Submit claim (JSON body — claim_type ∈ 6 loại mới)
+GET   /claims · /claims/{id} · DELETE /claims/{id}
 PATCH /claims/{id}/review        Reviewer override
 
-GET   /analytics/summary · /analytics/daily
+# User Policy (insurance registration & management)
+GET   /policies/plans            Danh sách 6 loại × 3 gói (public, không cần auth)
+GET   /policies                  Gói của user hiện tại (auto-expire end_date < now)
+POST  /policies/purchase         { policy_type, plan_index } → tạo UserPolicy active
+DELETE/policies/{id}             Cancel gói
 
-WS    /ws/{claim_id}             Real-time status
+GET   /analytics/summary         Total/approved/rejected/manual_review/processing,
+                                 approval_rate, avg_processing_minutes, total_approved_amount
+                                 (scope theo role: admin/reviewer = all, user = own)
+GET   /analytics/daily?days=30   daily_counts, region_breakdown, disaster_types, claim_types
 
-# Reviewer only (role: reviewer | admin)
-GET   /reviewer/queue            Claims cần review (manual_review)
-GET   /reviewer/stats            Stats cá nhân reviewer
+WS    /claims/ws/{claim_id}      Real-time status push
 
-# Admin only (role: admin)
-GET   /admin/users               Danh sách tất cả users
-PATCH /admin/users/{id}/role     Đổi role user
-PATCH /admin/users/{id}/status   Activate/deactivate user
-GET   /admin/policies            Danh sách policy documents
-POST  /admin/policies            Upload policy mới → ingest Qdrant
-DELETE/admin/policies/{id}       Deactivate + xóa vectors
+# Reviewer (role: reviewer | admin)
+GET   /reviewer/queue            Claims manual_review, filter province/disaster/min_fraud
+GET   /reviewer/stats            Stats cá nhân: reviewed_today/week/total, avg time, override rate
+
+# Admin (role: admin only)
+GET   /admin/users               Filter role + is_active, pagination skip/limit
+PATCH /admin/users/{id}/role     Đổi role user (audit log ghi old_role + new_role)
+PATCH /admin/users/{id}/status   Activate/deactivate (audit log)
+GET   /admin/policies            Policy docs (RAG) — list với chunk_count, last_ingested
+POST  /admin/policies            JSON body — trigger Celery task ingest_policy_to_qdrant
+DELETE/admin/policies/{id}       Deactivate + xóa vectors khỏi Qdrant
+GET   /admin/audit-logs          Filter action/target_type/from_date/to_date
+GET   /admin/system/health       Ping mongodb/redis/qdrant/celery + latency
+GET   /admin/analytics/full      Full system: users, claims, fraud_rate, top_high_risk_provinces,
+                                 reviewer_performance, daily_claims, region_breakdown
 GET   /admin/audit-logs          History mọi action quan trọng
 GET   /admin/system/health       Status MongoDB, Redis, Qdrant, Celery
 GET   /admin/analytics/full      Full system analytics

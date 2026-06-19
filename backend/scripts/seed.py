@@ -11,6 +11,7 @@ Usage:
 import asyncio
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -27,6 +28,7 @@ from app.models.document import Document
 from app.models.geo_risk import DisasterRisk, GeoRisk, InsuranceRecommendation
 from app.models.policy import Policy
 from app.models.user import User
+from app.models.user_policy import POLICY_PLANS, UserPolicy
 from app.core.config import settings
 from app.core.security import hash_password
 
@@ -268,6 +270,133 @@ async def seed_users():
     print(f"  ✓ {created} users created ({skipped} already exist)")
 
 
+async def seed_user_policies():
+    """Give each demo user one active policy per type so they can test claims immediately."""
+    import uuid
+    from datetime import timedelta
+    print("Seeding user policies...")
+    created = 0
+
+    # user1 (Quảng Bình, central — high risk) → disaster + medical
+    # user2 (Hà Nội, north) → medical + hospitalization
+    # user3 (HCM, south) → medical + disaster + medication
+    # Assign policies matching each user's province risk profile
+    demo_policies = [
+        # user1 — Quảng Bình (high disaster risk): disaster + health
+        ("user1@example.com", [("disaster", 1), ("health", 0)]),
+        # user2 — Hà Nội: health + life
+        ("user2@example.com", [("health", 1), ("life", 0)]),
+        # user3 — HCM: health + vehicle + income
+        ("user3@example.com", [("health", 0), ("vehicle", 1), ("income", 0)]),
+    ]
+
+    now = datetime.utcnow()
+    for email, types in demo_policies:
+        user = await User.find_one(User.email == email)
+        if not user:
+            continue
+        for ptype, plan_idx in types:
+            existing = await UserPolicy.find_one(
+                UserPolicy.user_id == str(user.id),
+                UserPolicy.policy_type == ptype,
+                UserPolicy.status == "active",
+            )
+            if existing:
+                continue
+            plan = POLICY_PLANS[ptype][plan_idx]
+            await UserPolicy(
+                user_id=str(user.id),
+                policy_number=f"CF-{ptype[:3].upper()}-{uuid.uuid4().hex[:8].upper()}",
+                policy_type=ptype,
+                plan_name=plan["plan_name"],
+                description=plan.get("description", ""),
+                coverage_amount=plan["coverage_amount"],
+                annual_premium=plan["annual_premium"],
+                start_date=now,
+                end_date=now + timedelta(days=365),
+            ).insert()
+            created += 1
+
+    print(f"  ✓ {created} policies created")
+
+
+POLICY_FILE_META = [
+    {
+        "file": "health_policy_2024.txt",
+        "title": "Điều khoản bảo hiểm sức khỏe 2024",
+        "category": "health",
+        "coverage_types": ["health"],
+    },
+    {
+        "file": "disaster_policy_2024.txt",
+        "title": "Điều khoản bảo hiểm thiên tai 2024",
+        "category": "disaster",
+        "coverage_types": ["disaster"],
+    },
+    {
+        "file": "life_policy_2024.txt",
+        "title": "Điều khoản bảo hiểm nhân thọ 2024",
+        "category": "life",
+        "coverage_types": ["life"],
+    },
+    {
+        "file": "property_policy_2024.txt",
+        "title": "Điều khoản bảo hiểm tài sản 2024",
+        "category": "property",
+        "coverage_types": ["property"],
+    },
+    {
+        "file": "vehicle_policy_2024.txt",
+        "title": "Điều khoản bảo hiểm xe cộ 2024",
+        "category": "vehicle",
+        "coverage_types": ["vehicle"],
+    },
+    {
+        "file": "income_policy_2024.txt",
+        "title": "Điều khoản bảo hiểm thu nhập 2024",
+        "category": "income",
+        "coverage_types": ["income"],
+    },
+]
+
+
+async def seed_policies():
+    """Đọc policy .txt từ sample_data/policies/ → insert vào MongoDB.
+
+    Idempotent: nếu policy cùng title đã có, skip (không update content).
+    Để re-ingest sau khi sửa file: chạy ingest_policies.py.
+    """
+    print("Seeding policy documents...")
+    from pathlib import Path
+    base = Path(__file__).resolve().parents[2] / "sample_data" / "policies"
+
+    created = 0
+    skipped = 0
+    for meta in POLICY_FILE_META:
+        path = base / meta["file"]
+        if not path.exists():
+            print(f"  ⚠ Skipped (file missing): {meta['file']}")
+            continue
+
+        existing = await Policy.find_one(Policy.title == meta["title"])
+        if existing:
+            skipped += 1
+            continue
+
+        content = path.read_text(encoding="utf-8")
+        await Policy(
+            title=meta["title"],
+            content=content,
+            category=meta["category"],
+            coverage_types=meta["coverage_types"],
+            version="1.0",
+            is_active=True,
+        ).insert()
+        created += 1
+
+    print(f"  ✓ {created} policies created ({skipped} already exist)")
+
+
 async def seed_geo_risks():
     print(f"Seeding geo risks ({len(PROVINCES)} provinces)...")
     created = 0
@@ -290,23 +419,28 @@ async def main():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
     await init_beanie(
         database=client[settings.MONGODB_DB_NAME],
-        document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy, AuditLog],
+        document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy, AuditLog, UserPolicy],
     )
     print(f"✓ Connected to [{settings.MONGODB_DB_NAME}]\n")
 
     await seed_users()
     await seed_geo_risks()
+    await seed_policies()
+    await seed_user_policies()
 
-    total_users     = await User.count()
-    total_provinces = await GeoRisk.count()
-    high_risk       = await GeoRisk.find(GeoRisk.is_high_risk == True).count()
+    total_users          = await User.count()
+    total_provinces      = await GeoRisk.count()
+    total_user_policies  = await UserPolicy.count()
+    total_policies       = await Policy.count()
 
     print("\n" + "=" * 50)
     print(f"  Users:          {total_users}")
     print(f"  Provinces:      {total_provinces}")
-    print(f"  High-risk:      {high_risk}")
+    print(f"  Policy docs:    {total_policies}")
+    print(f"  User policies:  {total_user_policies}")
     print("=" * 50)
     print("Seed complete!")
+    print("\nNext step: python scripts/ingest_policies.py (push to Qdrant)")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,9 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# Tìm .env từ thư mục gốc project (2 cấp trên config.py)
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class Settings(BaseSettings):
@@ -6,7 +11,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
 
     # MongoDB
-    MONGODB_URL: str = "mongodb://admin:admin@localhost:27018/?authSource=admin"
+    MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "claimflow_db"
 
     # Redis
@@ -25,8 +30,25 @@ class Settings(BaseSettings):
     # Qdrant
     QDRANT_URL: str = "http://localhost:6333"
 
-    # AI
+    # AI — Gemini API
     GEMINI_API_KEY: str = ""
+
+    # ── Model tier strategy ──────────────────────────────────────────────────
+    # Tách 3 alias để switch tier theo task. Mặc định tất cả là flash-lite
+    # (zero behavior change). Khi cần upgrade, đổi env var tương ứng — KHÔNG
+    # đụng code.
+    #
+    # Mapping (xem TASK-035 trong TASKS.md):
+    #   - LITE    → OCR đơn giản (CCCD layout chuẩn), chatbot Q&A
+    #   - DEFAULT → Claim agent (LangGraph) — cần reasoning ổn định
+    #   - PRO     → OCR handwriting / multi-doc / bbox (cần model mạnh nhất)
+    #
+    # Upgrade khuyến nghị khi đã verify model availability:
+    #   GEMINI_MODEL_DEFAULT=gemini-3.1-flash
+    #   GEMINI_MODEL_PRO=gemini-3.1-pro
+    GEMINI_MODEL_LITE: str = "gemini-3.1-flash-lite"
+    GEMINI_MODEL_DEFAULT: str = "gemini-3.1-flash-lite"
+    GEMINI_MODEL_PRO: str = "gemini-3.1-flash-lite"
 
     # Email
     RESEND_API_KEY: str = ""
@@ -38,8 +60,9 @@ class Settings(BaseSettings):
     ]
 
     class Config:
-        env_file = ".env"
+        env_file = str(_ENV_FILE)
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 settings = Settings()

@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import get_current_user
 from app.models.geo_risk import GeoRisk
 from app.models.user import User
-from app.services.geo.risk_engine import detect_province_from_text, get_insurance_recommendations
+from app.services.geo.risk_engine import (
+    _PROVINCE_INDEX,
+    _normalize_vn,
+    detect_province_from_text,
+    get_insurance_recommendations,
+)
 
 router = APIRouter(prefix="/geo-risk", tags=["geo-risk"])
 logger = logging.getLogger(__name__)
@@ -49,7 +54,13 @@ async def get_map_data() -> list[dict]:
 
 @router.get("/province/{province_name}")
 async def get_province_risk(province_name: str) -> dict:
+    # Exact match first
     doc = await GeoRisk.find_one(GeoRisk.province_name == province_name)
+    # Fallback: normalize input (handles "quang binh" → "Quảng Bình")
+    if not doc:
+        canonical = _PROVINCE_INDEX.get(_normalize_vn(province_name))
+        if canonical:
+            doc = await GeoRisk.find_one(GeoRisk.province_name == canonical)
     if not doc:
         raise HTTPException(404, f"Province '{province_name}' not found")
     return _serialize(doc)

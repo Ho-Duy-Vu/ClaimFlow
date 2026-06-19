@@ -18,29 +18,31 @@ function riskColor(score: number): string {
   return '#16a34a';
 }
 
-function normalize(name: string): string {
-  return name
+function normalize(raw: string): string {
+  return raw
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[̀-ͯ]/g, '') // strip combining diacritical marks
     .replace(/đ/g, 'd')
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Highcharts uses English-ish names — map to normalized Vietnamese
-const NAME_OVERRIDE: Record<string, string> = {
-  'ho chi minh city': 'tp ho chi minh',
-  'ba ria vung tau province': 'ba ria vung tau',
-  'thua thien hue province': 'thua thien hue',
-  'dak lak province': 'dak lak',
-  'dak nong province': 'dak nong',
-  'can tho city': 'can tho',
-  'hai phong city': 'hai phong',
-  'ha noi city': 'ha noi',
-  'da nang city': 'da nang',
-};
+// Word-overlap score using strict word equality (no prefix matching) to avoid
+// false positives like "Haiphong" matching "Hà Nội" via shared "ha"/"hai" prefix.
+function overlapScore(a: string, b: string): number {
+  const stopWords = new Set(['tinh', 'thanh', 'pho', 'city', 'province', 'tp']);
+  const words = (s: string) => s.split(' ').filter((w) => w.length > 1 && !stopWords.has(w));
+  const wa = words(a);
+  const wb = words(b);
+  if (!wa.length || !wb.length) return 0;
+  const shorter = wa.length <= wb.length ? wa : wb;
+  const longer = wa.length <= wb.length ? wb : wa;
+  const longerSet = new Set(longer);
+  const hits = shorter.filter((w) => longerSet.has(w));
+  return hits.length / shorter.length;
+}
 
 function buildIndex(riskData: GeoRisk[]): Map<string, GeoRisk> {
   const idx = new Map<string, GeoRisk>();
@@ -51,54 +53,76 @@ function buildIndex(riskData: GeoRisk[]): Map<string, GeoRisk> {
 }
 
 function lookupRisk(featureName: string, idx: Map<string, GeoRisk>): GeoRisk | undefined {
+  if (!featureName) return undefined;
   const key = normalize(featureName);
+
+  // 1. Exact normalized match (catches 59/63 provinces)
   if (idx.has(key)) return idx.get(key);
 
-  const overrideKey = NAME_OVERRIDE[key];
-  if (overrideKey && idx.has(overrideKey)) return idx.get(overrideKey);
-
-  // Partial match: any province whose normalized name overlaps
-  for (const [dbKey, risk] of idx.entries()) {
-    if (key.includes(dbKey) || dbKey.includes(key)) return risk;
+  // 2. Joined no-space match — handles "Haiphong" → "Hải Phòng"
+  const keyJoined = key.replace(/\s+/g, '');
+  for (const [dbKey, risk] of Array.from(idx)) {
+    if (dbKey.replace(/\s+/g, '') === keyJoined) return risk;
   }
+
+  // 3. Word-overlap fallback — handles "Hồ Chí Minh city" → "TP. Hồ Chí Minh"
+  //    and "Huế" → "Thừa Thiên Huế". Threshold 0.6 to reject "Southeast" etc.
+  let best: GeoRisk | undefined;
+  let bestScore = 0;
+  for (const [dbKey, risk] of Array.from(idx)) {
+    const score = overlapScore(key, dbKey);
+    if (score > bestScore) {
+      bestScore = score;
+      best = risk;
+    }
+  }
+  if (bestScore >= 0.6) return best;
+
   return undefined;
 }
 
 export default function LeafletMap({ riskData, geoJson, onProvinceClick }: Props) {
-  // Build index once per render (both datasets already ready when this component mounts)
   const riskIndex = buildIndex(riskData);
 
   const style = (feature?: GeoJSON.Feature): PathOptions => {
-    const name: string = feature?.properties?.name ?? feature?.properties?.Name ?? '';
+    const name: string =
+      feature?.properties?.name ??
+      feature?.properties?.Name ??
+      feature?.properties?.NAME ??
+      feature?.properties?.['woe-name'] ??
+      '';
     const risk = lookupRisk(name, riskIndex);
     return {
-      fillColor: risk ? riskColor(risk.overall_risk_score) : '#94a3b8',
-      fillOpacity: 0.7,
+      fillColor: risk ? riskColor(risk.overall_risk_score) : '#cbd5e1',
+      fillOpacity: 0.75,
       color: '#ffffff',
       weight: 1,
     };
   };
 
   const onEachFeature = (feature: GeoJSON.Feature, layer: Layer) => {
-    const name: string = feature?.properties?.name ?? feature?.properties?.Name ?? '';
+    const name: string =
+      feature?.properties?.name ??
+      feature?.properties?.Name ??
+      feature?.properties?.NAME ??
+      feature?.properties?.['woe-name'] ??
+      '';
     const risk = lookupRisk(name, riskIndex);
 
     layer.on({
       mouseover: (e: LeafletMouseEvent) => {
-        (e.target as Path).setStyle({ fillOpacity: 0.9, weight: 2, color: '#1e40af' });
+        (e.target as Path).setStyle({ fillOpacity: 0.95, weight: 2, color: '#1e40af' });
       },
       mouseout: (e: LeafletMouseEvent) => {
-        (e.target as Path).setStyle({ fillOpacity: 0.7, weight: 1, color: '#ffffff' });
+        (e.target as Path).setStyle({ fillOpacity: 0.75, weight: 1, color: '#ffffff' });
       },
       click: () => onProvinceClick(risk ?? null),
     });
 
-    const scoreText = risk ? ` — ${risk.overall_risk_score}/100` : '';
-    layer.bindTooltip(`${name}${scoreText}`, {
-      permanent: false,
-      direction: 'auto',
-      sticky: true,
-    });
+    const label = risk
+      ? `${risk.province_name} — ${risk.overall_risk_score}/100`
+      : name;
+    layer.bindTooltip(label, { permanent: false, direction: 'auto', sticky: true });
   };
 
   return (

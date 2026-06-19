@@ -17,6 +17,7 @@ from app.api.routes import (
     documents,
     geo_risk,
     reviewer,
+    user_policies,
 )
 
 logging.basicConfig(
@@ -68,6 +69,7 @@ app.include_router(documents.router)
 app.include_router(geo_risk.router)
 app.include_router(chatbot.router)
 app.include_router(claims.router)
+app.include_router(user_policies.router)
 app.include_router(analytics.router)
 app.include_router(reviewer.router)
 app.include_router(admin.router)

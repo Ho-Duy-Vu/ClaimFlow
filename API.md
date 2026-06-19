@@ -1,7 +1,7 @@
 # API.md — API Reference
 
 > Request/response format đầy đủ. Claude đọc khi viết code FE gọi API hoặc viết endpoint mới.
-> Cập nhật: bao gồm security headers, CSRF, rate limit, confidence fields, edit history.
+> Cập nhật: bao gồm security headers, CSRF, rate limit, confidence fields, edit history, UserPolicy endpoints.
 
 ---
 
@@ -256,6 +256,7 @@ Yêu cầu `X-CSRF-Token` header.
 ## Geo Risk
 
 ### GET `/geo-risk/province/{province_name}`
+Hỗ trợ tên tỉnh không dấu ("Quang Binh") và alias ("HCM", "HN", "TP HCM").
 ```json
 // Response 200
 {
@@ -345,6 +346,106 @@ Yêu cầu `X-CSRF-Token` header.
 
 ---
 
+## Policies (User Insurance)
+
+> Endpoints quản lý gói bảo hiểm của user — không nhầm với Admin policy (RAG documents).
+
+### GET `/policies/plans`
+Catalog tất cả gói — public, không cần auth.
+```json
+// Response 200
+{
+  "plans": {
+    "health": [
+      {
+        "plan_index": 0,
+        "plan_name": "Sức Khỏe Cơ Bản",
+        "description": "Bảo hiểm sức khỏe cơ bản: khám ngoại trú, nội trú, cấp cứu",
+        "coverage_amount": 100000000,
+        "annual_premium": 2400000
+      },
+      {
+        "plan_index": 1,
+        "plan_name": "Sức Khỏe Nâng Cao",
+        "description": "Bảo hiểm toàn diện: khám, phẫu thuật, điều trị ung thư",
+        "coverage_amount": 300000000,
+        "annual_premium": 6000000
+      },
+      {
+        "plan_index": 2,
+        "plan_name": "Sức Khỏe Toàn Diện",
+        "description": "Bảo hiểm cao cấp: tất cả dịch vụ y tế + chăm sóc nha khoa",
+        "coverage_amount": 500000000,
+        "annual_premium": 12000000
+      }
+    ],
+    "disaster": [...],
+    "life": [...],
+    "property": [...],
+    "vehicle": [...],
+    "income": [...]
+  }
+}
+```
+
+### GET `/policies`
+Danh sách gói đang active của user hiện tại.
+```json
+// Response 200
+{
+  "items": [
+    {
+      "id": "...",
+      "policy_number": "CF-HEA-A1B2C3D4",
+      "policy_type": "health",
+      "plan_name": "Sức Khỏe Nâng Cao",
+      "coverage_amount": 300000000,
+      "annual_premium": 6000000,
+      "status": "active",
+      "start_date": "2024-06-01T00:00:00Z",
+      "end_date": "2025-06-01T00:00:00Z",
+      "insurer": "ClaimFlow Insurance"
+    }
+  ],
+  "total": 2
+}
+```
+
+### POST `/policies/purchase`
+Yêu cầu `X-CSRF-Token` header.
+```json
+// Request
+{
+  "policy_type": "disaster",
+  "plan_index": 1
+}
+
+// Response 201
+{
+  "id": "...",
+  "policy_number": "CF-DIS-E5F6G7H8",
+  "policy_type": "disaster",
+  "plan_name": "Thiên Tai Nâng Cao",
+  "coverage_amount": 150000000,
+  "annual_premium": 4800000,
+  "status": "active",
+  "start_date": "2024-06-15T00:00:00Z",
+  "end_date": "2025-06-15T00:00:00Z"
+}
+// Error 400: plan_index không hợp lệ (0, 1, 2)
+// Error 409: đã có policy_type này đang active
+```
+
+### DELETE `/policies/{id}`
+Hủy gói bảo hiểm. Yêu cầu `X-CSRF-Token` header.
+```json
+// Response 200
+{ "message": "Policy cancelled successfully.", "policy_number": "CF-DIS-E5F6G7H8" }
+// Error 404: policy không tồn tại hoặc không phải của user
+```
+
+---
+
 ## Chatbot
 
 Rate limit: **30/phút per IP**
@@ -400,29 +501,29 @@ Yêu cầu `X-CSRF-Token` header.
 ## Claims
 
 ### POST `/claims/submit`
-`multipart/form-data` — Yêu cầu `X-CSRF-Token` header.
-
-```
-claim_type:    "disaster"
-amount_claimed: 15000000
-province:       "Quảng Bình"
-disaster_type:  "flood"
-description:    "Nhà bị ngập lụt do bão số 5"
-file:           [binary]
-```
-
+JSON body — Yêu cầu `X-CSRF-Token` header. Rate limit 5/phút.
 ```json
-// Response 201
+// Request
 {
-  "claim_id": "...",
-  "status": "pending",
-  "message": "Claim submitted. AI processing started in background."
+  "claim_type": "disaster",       // health|life|property|vehicle|disaster|income (6 loại MỚI)
+  "amount_claimed": 15000000,     // > 0, max 10 tỷ VND
+  "province": "Quảng Bình",
+  "disaster_type": "flood",        // chỉ khi claim_type = "disaster"
+  "description": "Nhà bị ngập lụt do bão số 5",  // min 10 chars
+  "document_ids": ["doc-id-1", "doc-id-2"]       // optional, max 5 — phải thuộc cùng user
 }
+
+// Response 201 — async processing (Celery hoặc BackgroundTask fallback)
+{ "claim_id": "...", "status": "processing" }
+
+// Error 422: user chưa có UserPolicy active loại claim_type tương ứng
+{ "detail": "Bạn chưa mua gói bảo hiểm 'disaster'. Vui lòng mua gói phù hợp..." }
 ```
+> **Migration note:** type cũ `medical/dental/hospitalization/medication` không còn được chấp nhận. Gửi với type cũ sẽ trả 422 Pydantic Literal validation error.
 
 ### GET `/claims`
 ```
-// Query: ?status=approved&province=Quảng Bình&disaster_type=flood&page=1&page_size=10
+// Query: ?status=approved&province=Quảng Bình&claim_type=disaster&page=1&page_size=10
 ```
 ```json
 // Response 200
@@ -464,7 +565,7 @@ file:           [binary]
   "ai_reasoning": "Claim hợp lệ. Lũ lụt tháng 10/2024 tại Quảng Bình được ghi nhận lịch sử. Số tiền trong giới hạn bảo hiểm thiên tai 20,000,000 VND.",
   "ai_fraud_score": 8,
   "ai_fraud_flags": [],
-  "ai_parsed_data": { "patient_name": null, "disaster_type": "flood", "damage_type": "residential" },
+  "ai_parsed_data": { "disaster_type": "flood", "damage_type": "residential" },
 
   "documents": [
     { "id": "...", "doc_type": "insurance_policy", "file_name": "hopd_bh.pdf" }
@@ -478,6 +579,19 @@ file:           [binary]
   "processed_at": "...",
   "updated_at": "..."
 }
+```
+
+### DELETE `/claims/{id}`
+Yêu cầu `X-CSRF-Token` header.
+```json
+// Response 200
+{ "message": "Claim deleted." }
+
+// Error 400: claim đang trong trạng thái processing < 5 phút
+{ "detail": "Claim đang được xử lý. Vui lòng chờ hoặc thử lại sau 5 phút." }
+
+// Error 403: không phải owner của claim
+// Error 404: claim không tồn tại
 ```
 
 ### PATCH `/claims/{id}/review`
@@ -502,60 +616,49 @@ Chỉ role `reviewer` hoặc `admin`. Yêu cầu `X-CSRF-Token`.
 
 ## Analytics
 
+> **Scope theo role:** `admin` và `reviewer` thấy toàn bộ claims; `user` chỉ thấy claims của mình. Backend tự thêm filter `user_id` cho non-admin/reviewer.
+
 ### GET `/analytics/summary`
 ```json
-// Query: ?days=30
+// Response 200
 {
+  "scope": "all",                 // "all" cho admin/reviewer, "user" cho người dùng thường
   "total_claims": 127,
-  "pending_claims": 5,
-  "approval_rate": 0.73,
-  "avg_processing_seconds": 18.4,
-  "total_amount_claimed": 185000000,
-  "total_amount_approved": 134050000,
-  "fraud_flagged_count": 8,
-  "by_region": { "north": 45, "central": 62, "south": 20 },
-  "by_disaster_type": { "flood": 38, "storm": 25, "landslide": 12, "other": 52 },
-  "ocr_cache_hit_rate": 0.34
+  "approved": 89,
+  "rejected": 18,
+  "manual_review": 12,
+  "processing": 8,
+  "approval_rate": 70.1,          // % (tính từ approved/total)
+  "avg_processing_minutes": 18.4, // tính từ processed_at - created_at trên claim đã processed
+  "total_approved_amount": 134050000  // sum amount_approved (fallback amount_claimed)
 }
 ```
 
 ### GET `/analytics/daily`
 ```json
-// Query: ?days=30
+// Query: ?days=30 (clamp 1..90)
 {
-  "data": [
-    {
-      "date": "2024-10-15",
-      "total": 12,
-      "approved": 9,
-      "rejected": 2,
-      "manual_review": 1,
-      "disaster_claims": 8,
-      "avg_confidence": 0.87
-    }
-  ]
+  "days": 30,
+  "daily_counts": [
+    { "date": "2026-04-30", "count": 12, "approved": 9 }
+    // ... 30 buckets, sort theo ngày tăng dần
+  ],
+  "region_breakdown": { "north": 45, "central": 62, "south": 20, "unknown": 0 },
+  "disaster_types": [
+    ["flood", 38], ["storm", 25], ["landslide", 12]
+    // Counter.most_common(10) — list of [name, count]
+  ],
+  "claim_types": { "health": 50, "disaster": 30, "vehicle": 12, "property": 8, "life": 5, "income": 2 }
 }
 ```
 
-### GET `/analytics/breakdown`
-```json
-{
-  "by_status": { "approved": 73, "rejected": 18, "manual_review": 12, "pending": 5 },
-  "by_doc_type": { "cccd": 89, "insurance_policy": 95, "driver_license": 23 },
-  "top_rejection_reasons": [
-    { "reason": "Không thuộc phạm vi bảo hiểm", "count": 8 },
-    { "reason": "Số tiền vượt giới hạn coverage", "count": 5 },
-    { "reason": "Tài liệu không đủ / thiếu thông tin", "count": 3 }
-  ],
-  "low_confidence_rate": 0.12
-}
-```
+> `/analytics/breakdown` không còn — gộp vào `/analytics/daily` (region/disaster/claim type) và `/admin/analytics/full` (top high-risk provinces + reviewer performance).
 
 ---
 
 ## WebSocket
 
-### `WS /ws/{claim_id}`
+### `WS /claims/ws/{claim_id}`
 
 ```json
 // Khi processing
@@ -693,7 +796,7 @@ export interface MapData {
 
 // types/claim.ts
 export type ClaimStatus = 'pending' | 'processing' | 'approved' | 'rejected' | 'manual_review';
-export type ClaimType = 'medical' | 'dental' | 'hospitalization' | 'medication' | 'disaster';
+export type ClaimType = 'health' | 'life' | 'property' | 'vehicle' | 'disaster' | 'income';
 
 export interface ClaimSummary {
   id: string;
@@ -718,6 +821,37 @@ export interface ClaimDetail extends ClaimSummary {
   reviewed_at: string | null;
   documents: { id: string; doc_type: DocType; file_name: string }[];
   updated_at: string;
+}
+
+// types/policy.ts
+export type PolicyType = 'health' | 'life' | 'property' | 'vehicle' | 'disaster' | 'income';
+export type PolicyStatus = 'active' | 'expired' | 'cancelled';
+
+export interface UserPolicy {
+  id: string;
+  policy_number: string;           // CF-HEA-XXXXXXXX
+  policy_type: PolicyType;
+  plan_name: string;
+  description: string;
+  insurer: string;
+  coverage_amount: number;
+  annual_premium: number;
+  status: PolicyStatus;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
+export interface PolicyPlan {
+  plan_index: number;
+  plan_name: string;
+  description: string;
+  coverage_amount: number;
+  annual_premium: number;
+}
+
+export interface PoliciesCatalog {
+  plans: Record<PolicyType, PolicyPlan[]>;
 }
 
 // types/chatbot.ts
@@ -807,9 +941,14 @@ export interface WSMessage {
 | `GET /documents/{id}` | Own only | ✓ | ✓ |
 | `POST /chatbot/message` | ✓ | ✓ | ✓ |
 | `GET /geo-risk/*` | ✓ | ✓ | ✓ |
+| `GET /policies/plans` | ✓ (public) | ✓ | ✓ |
+| `GET /policies` | Own only | ✓ | ✓ |
+| `POST /policies/purchase` | ✓ | ✓ | ✓ |
+| `DELETE /policies/{id}` | Own only | ✓ | ✓ |
 | `POST /claims/submit` | ✓ | ✓ | ✓ |
 | `GET /claims` | Own only | All | All |
 | `GET /claims/{id}` | Own only | All | All |
+| `DELETE /claims/{id}` | Own only | ✓ | ✓ |
 | `PATCH /claims/{id}/review` | ✗ | ✓ | ✓ |
 | `GET /analytics/summary` | Own stats | All claims | Full system |
 | **Admin only** | | | |
@@ -830,186 +969,212 @@ export interface WSMessage {
 > Tất cả `/admin/*` endpoints yêu cầu role `admin`. Trả 403 nếu không phải admin.
 
 ### GET `/admin/users`
+```
+// Query: ?role=reviewer&is_active=true&skip=0&limit=100
+```
 ```json
-// Query: ?role=reviewer&is_active=true&page=1&page_size=20
-// Response 200
+// Response 200 (pagination dạng skip/limit)
 {
+  "total": 150,
+  "skip": 0,
+  "limit": 100,
   "items": [
     {
       "id": "...",
-      "email": "reviewer@covergo.com",
-      "full_name": "Trần Thị B",
+      "email": "reviewer@claimflow.vn",
+      "full_name": "Trần Thị Bình",
       "role": "reviewer",
-      "province": "Hà Nội",
-      "region": "north",
+      "province": "TP. Hồ Chí Minh",
+      "region": "south",
       "is_active": true,
-      "claims_reviewed": 47,
-      "created_at": "...",
-      "last_login": "..."
+      "created_at": "2026-05-28T12:00:00Z"
     }
-  ],
-  "total": 150,
-  "page": 1,
-  "page_size": 20
+  ]
 }
 ```
 
 ### PATCH `/admin/users/{id}/role`
 ```json
 // Request
-{ "role": "reviewer" }
+{ "role": "reviewer" }       // user | reviewer | admin
 
-// Response 200
-{ "id": "...", "email": "...", "role": "reviewer", "updated_at": "..." }
+// Response 200 — trả full user object đã update
+{ "id": "...", "email": "...", "role": "reviewer", "is_active": true, ... }
+// AuditLog: action="role_change", details: {old_role, new_role, target_email}
 
-// Error 400: không thể tự đổi role của chính mình
-{ "detail": "Cannot change your own role" }
+// Error 400: không thể tự hạ role của chính mình
+{ "detail": "Không thể tự hạ quyền admin của chính mình" }
 ```
 
 ### PATCH `/admin/users/{id}/status`
 ```json
-// Request — deactivate/activate user
-{ "is_active": false, "reason": "Vi phạm điều khoản sử dụng" }
+// Request — activate hoặc deactivate
+{ "is_active": false }
 
-// Response 200
-{ "id": "...", "is_active": false, "updated_at": "..." }
+// Response 200 — full user object
+{ "id": "...", "is_active": false, ... }
+// AuditLog: action="user_activate" hoặc "user_deactivate"
+
+// Error 400: không thể tự deactivate chính mình
+{ "detail": "Không thể tự vô hiệu hóa chính mình" }
 ```
 
-### DELETE `/admin/users/{id}`
-```json
-// Response 200
-{ "message": "User deactivated. Data retained for audit." }
-// Soft delete — không xóa vật lý, chỉ set is_active=false
-```
+> Không có `DELETE /admin/users/{id}` — soft delete dùng PATCH `/status` với `is_active=false`.
 
 ### GET `/admin/policies`
+```
+// Query: ?is_active=true
+```
 ```json
-// Response 200 — quản lý policy documents cho RAG
-{
-  "items": [
-    {
-      "id": "...",
-      "title": "Điều khoản bảo hiểm y tế 2024",
-      "category": "medical",
-      "version": "2024.1",
-      "is_active": true,
-      "chunk_count": 48,
-      "last_ingested": "2024-05-01T00:00:00Z",
-      "created_at": "..."
-    }
-  ],
-  "total": 6
-}
+// Response 200 — plain array (không wrap items/total)
+[
+  {
+    "id": "...",
+    "title": "Điều khoản bảo hiểm y tế 2024",
+    "category": "health",
+    "version": "1.0",
+    "is_active": true,
+    "chunk_count": 48,
+    "coverage_types": ["health"],
+    "last_ingested": "2026-05-01T00:00:00Z",
+    "created_at": "...",
+    "content_preview": "Điều 1: ... (200 ký tự đầu)..."
+  }
+]
 ```
 
 ### POST `/admin/policies`
-`multipart/form-data`:
-```
-file:     [binary]    .txt hoặc .pdf
-title:    "Điều khoản bảo hiểm bão lũ 2024"
-category: "disaster"
-version:  "2024.1"
-```
+JSON body — KHÔNG dùng multipart. Sau khi tạo doc, Celery task `ingest_policy_to_qdrant` chạy ngầm.
 ```json
-// Response 201
+// Request
 {
-  "policy_id": "...",
-  "title": "...",
-  "message": "Policy uploaded. Ingesting vào Qdrant vector store...",
-  "chunk_count": 52
+  "title": "Điều khoản bảo hiểm bão lũ 2026",
+  "content": "<full policy text — min 100 chars>",
+  "category": "disaster",
+  "version": "1.0",
+  "coverage_types": ["disaster"]
 }
+
+// Response 201 — chunk_count=0 tại thời điểm tạo, sẽ update khi Celery xong
+{
+  "id": "...",
+  "title": "...",
+  "category": "disaster",
+  "version": "1.0",
+  "is_active": true,
+  "chunk_count": 0,
+  "coverage_types": ["disaster"],
+  "last_ingested": null,
+  "created_at": "...",
+  "content_preview": "..."
+}
+// AuditLog: action="policy_upload"
 ```
 
 ### DELETE `/admin/policies/{id}`
 ```json
-// Response 200
-{
-  "message": "Policy deactivated and removed from vector store.",
-  "chunks_deleted": 52
-}
+// Response 200 — soft delete + xóa vectors khỏi Qdrant
+{ "ok": true, "vectors_deleted": 52 }
+// Sets is_active=false + chunk_count=0
+// Best-effort Qdrant delete (silent failure nếu Qdrant down)
+// AuditLog: action="policy_delete"
 ```
 
 ### GET `/admin/audit-logs`
+```
+// Query (tất cả optional):
+?action=role_change
+&target_type=user
+&actor_id=...
+&from_date=2026-05-01T00:00:00      ISO 8601
+&to_date=2026-05-31T23:59:59
+&skip=0&limit=50
+```
 ```json
-// Query: ?action=role_change&user_id=...&from=2024-05-01&to=2024-05-31&page=1
-// Response 200
+// Response 200 — sort timestamp DESC
 {
+  "total": 234,
+  "skip": 0,
+  "limit": 50,
   "items": [
     {
       "id": "...",
-      "timestamp": "2024-05-15T10:30:00Z",
-      "actor_id": "admin-user-id",
-      "actor_email": "admin@covergo.com",
+      "timestamp": "2026-05-29T10:30:00Z",
+      "actor_id": "...",
+      "actor_email": "admin@claimflow.vn",
       "action": "role_change",
       "target_type": "user",
       "target_id": "...",
       "details": {
         "old_role": "user",
         "new_role": "reviewer",
-        "reason": "Promoted to claims reviewer team"
-      }
+        "target_email": "..."
+      },
+      "ip_address": "127.0.0.1"
     }
-  ],
-  "total": 234
+  ]
 }
-// action types: role_change | user_deactivate | policy_upload
-//               policy_delete | claim_override | login_failed
+// action enum: role_change | user_deactivate | user_activate
+//              policy_upload | policy_delete | claim_override
+//              login_failed | login_success
+// target_type enum: user | policy | claim
 ```
 
 ### GET `/admin/system/health`
 ```json
-// Response 200
+// Response 200 — ping mỗi service realtime
 {
-  "status": "healthy",
-  "timestamp": "2024-05-15T10:30:00Z",
+  "overall": "up",    // "up" | "degraded"
+  "checked_at": "2026-05-29T10:30:00Z",
   "services": {
-    "mongodb": { "status": "ok", "latency_ms": 2 },
-    "redis": { "status": "ok", "latency_ms": 1 },
-    "qdrant": { "status": "ok", "latency_ms": 5 },
-    "minio": { "status": "ok", "latency_ms": 8 },
-    "gemini_api": { "status": "ok", "quota_remaining": 1243 }
-  },
-  "celery": {
-    "workers_online": 1,
-    "queue_depth": 3,
-    "tasks_processed_today": 127
+    "mongodb": { "status": "up", "latency_ms": 2.1 },
+    "redis":   { "status": "up", "latency_ms": 1.4 },
+    "qdrant":  { "status": "up", "latency_ms": 5.2, "collections": ["insurance_policies"] },
+    "celery":  { "status": "up", "workers": ["celery@host"] }
+    // hoặc { "status": "down", "error": "ConnectionRefused: ..." }
   }
 }
 ```
 
 ### GET `/admin/analytics/full`
 ```json
-// Query: ?days=30
 // Response 200 — full system analytics (không filter theo user)
 {
-  "overview": {
-    "total_users": 150,
-    "active_users_30d": 89,
-    "new_users_7d": 12,
-    "total_documents_ocr": 1247,
-    "ocr_cache_hit_rate": 0.34,
-    "avg_ocr_confidence": 0.87,
-    "total_claims": 534,
-    "approval_rate": 0.73,
-    "avg_processing_seconds": 18.4,
-    "fraud_flagged_rate": 0.06
+  "users": {
+    "total": 150,
+    "active": 142,
+    "reviewers": 3
   },
-  "by_region": { "north": 189, "central": 245, "south": 100 },
-  "by_doc_type": { "cccd": 512, "insurance_policy": 389, "driver_license": 156 },
-  "by_disaster_type": { "flood": 145, "storm": 98, "landslide": 42 },
+  "claims": {
+    "total": 534,
+    "approved": 389,
+    "rejected": 72,
+    "manual_review": 45,
+    "processing": 28,
+    "approval_rate": 72.8,
+    "fraud_rate": 6.2          // % claims có ai_fraud_score >= 70
+  },
   "top_high_risk_provinces": [
-    { "province": "Quảng Bình", "claims_count": 47, "risk_score": 92 },
-    { "province": "Hà Tĩnh", "claims_count": 38, "risk_score": 89 }
+    { "name": "Quảng Bình", "region": "central", "risk_score": 92 },
+    { "name": "Hà Tĩnh",    "region": "central", "risk_score": 89 }
+    // top 5 by overall_risk_score (chỉ tỉnh is_high_risk=true)
   ],
   "reviewer_performance": [
     {
       "reviewer_id": "...",
-      "reviewer_name": "Trần Thị B",
-      "claims_reviewed": 47,
-      "avg_review_time_minutes": 12,
-      "override_rate": 0.08
+      "email": "reviewer@claimflow.vn",
+      "full_name": "Trần Thị Bình",
+      "total_reviewed": 47,
+      "approved": 38,
+      "approval_rate": 80.9
     }
-  ]
+    // sort by total_reviewed DESC, top 10
+  ],
+  "daily_claims": [
+    { "date": "2026-04-30", "count": 12 }
+    // 30 buckets, sort tăng dần
+  ],
+  "region_breakdown": { "north": 189, "central": 245, "south": 100, "unknown": 0 }
 }
 ```
 
@@ -1017,26 +1182,41 @@ version:  "2024.1"
 
 ## Reviewer Endpoints
 
+> Yêu cầu role `reviewer` hoặc `admin` (dependency `require_reviewer`). 403 nếu không đủ quyền.
+
 ### GET `/reviewer/queue`
+```
+// Query params (tất cả optional):
+?province=Quảng Bình
+&disaster_type=flood
+&min_fraud_score=70
+&skip=0&limit=50
+```
 ```json
-// Claims cần review — chỉ status=manual_review
-// Query: ?province=Quảng Bình&sort=oldest_first&page=1
+// Response 200 — Claims status=manual_review, sort created_at ASC (oldest first)
 {
+  "total": 12,
+  "skip": 0,
+  "limit": 50,
   "items": [
     {
       "id": "...",
-      "status": "manual_review",
+      "user_id": "...",
       "claim_type": "disaster",
-      "province": "Quảng Bình",
+      "status": "manual_review",
       "amount_claimed": 30000000,
+      "province": "Quảng Bình",
+      "disaster_type": "flood",
+      "ai_decision": "manual_review",
+      "ai_reasoning": "Số tiền yêu cầu cao hơn 80% so với trung bình các claim disaster trong vùng.",
       "ai_fraud_score": 78,
       "ai_fraud_flags": ["amount_anomaly", "provider_not_whitelisted"],
-      "submitted_by": { "id": "...", "full_name": "Nguyễn Văn A" },
-      "created_at": "...",
-      "waiting_since": "2 hours ago"
+      "ai_parsed_data": { "disaster_type": "flood", "damage_type": "residential" },
+      "documents": [{ "id": "...", "doc_type": "insurance_policy", "file_name": "..." }],
+      "created_at": "2026-05-29T07:00:00Z",
+      "waiting_seconds": 7200
     }
-  ],
-  "total": 12
+  ]
 }
 ```
 
@@ -1044,11 +1224,14 @@ version:  "2024.1"
 ```json
 // Stats cá nhân của reviewer đang login
 {
-  "claims_reviewed_today": 5,
-  "claims_reviewed_total": 47,
-  "pending_in_queue": 12,
-  "avg_review_time_minutes": 12,
-  "override_rate": 0.08
+  "reviewer_id": "...",
+  "reviewer_email": "reviewer@claimflow.vn",
+  "reviewed_today": 5,
+  "reviewed_week": 23,
+  "reviewed_total": 47,
+  "avg_review_time_minutes": 12.4,   // (reviewed_at - created_at) avg
+  "override_rate": 8.5,               // %, claim có status ≠ ai_decision mapping
+  "pending_in_queue": 12              // toàn hệ thống, không chỉ riêng reviewer
 }
 ```
 
@@ -1132,7 +1315,7 @@ export interface PolicyDocument {
 export interface ReviewerQueueItem {
   id: string;
   status: 'manual_review';
-  claim_type: string;
+  claim_type: ClaimType;
   province: string | null;
   amount_claimed: number;
   ai_fraud_score: number;

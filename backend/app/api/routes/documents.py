@@ -3,14 +3,14 @@ import hashlib
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.api.deps import get_current_user
 from app.core.rate_limit import limiter
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.document import DocumentOCRResponse, DocumentResponse, DocumentUploadResponse
-from app.services.storage import ensure_bucket, get_presigned_url, upload_file
+from app.services.storage import delete_file, download_file, ensure_bucket, get_presigned_url, upload_file
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 @limiter.limit("10/minute")
 async def upload_document(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     doc_type: str = Form(...),
     current_user: User = Depends(get_current_user),
@@ -71,13 +72,29 @@ async def upload_document(
     )
     await doc.insert()
 
-    # Trigger async OCR via Celery
+    async def _run_ocr_background(doc_id: str, fb: bytes, dt: str) -> None:
+        from app.services.ai.ocr import ocr_service
+        try:
+            await ocr_service.get_or_extract(fb, dt, doc_id)
+            logger.info("Background OCR completed for document %s", doc_id)
+        except Exception as ocr_err:
+            logger.error("Background OCR failed for document %s: %s", doc_id, ocr_err)
+
+    # Use Celery only if a worker is actively running; otherwise use BackgroundTask
+    celery_queued = False
     try:
-        from app.tasks.document_processor import process_document
-        process_document.delay(str(doc.id), base64.b64encode(file_bytes).decode(), doc_type)
-        logger.info("Queued OCR task for document %s", doc.id)
+        from app.tasks.document_processor import celery_app, process_document
+        workers = celery_app.control.inspect(timeout=0.5).ping()
+        if workers:
+            process_document.delay(str(doc.id), base64.b64encode(file_bytes).decode(), doc_type)
+            celery_queued = True
+            logger.info("Queued OCR via Celery worker for document %s", doc.id)
     except Exception as e:
-        logger.warning("Celery unavailable, OCR skipped: %s", e)
+        logger.debug("Celery worker check failed: %s", e)
+
+    if not celery_queued:
+        background_tasks.add_task(_run_ocr_background, str(doc.id), file_bytes, doc_type)
+        logger.info("Scheduled OCR as background task for document %s", doc.id)
 
     presigned_url = get_presigned_url(file_key)
 
@@ -120,6 +137,21 @@ async def get_download_url(
     if not doc or doc.user_id != str(current_user.id):
         raise HTTPException(404, "Document not found")
     return {"presigned_url": get_presigned_url(doc.file_key)}
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+) -> None:
+    doc = await Document.get(document_id)
+    if not doc or doc.user_id != str(current_user.id):
+        raise HTTPException(404, "Document not found")
+    try:
+        await delete_file(doc.file_key)
+    except Exception as e:
+        logger.warning("Could not delete file from storage: %s", e)
+    await doc.delete()
 
 
 @router.get("/{document_id}/ocr", response_model=DocumentOCRResponse)
@@ -190,6 +222,31 @@ async def export_document(
     return {"format": "json", "content": json.dumps(doc.structured_data, ensure_ascii=False, indent=2)}
 
 
+@router.post("/{document_id}/reprocess", status_code=202)
+async def reprocess_document(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Re-run OCR on a pending/failed document by re-downloading from storage."""
+    doc = await Document.get(document_id)
+    if not doc or doc.user_id != str(current_user.id):
+        raise HTTPException(404, "Document not found")
+    # Allow reprocess even if stuck at "processing" (may have crashed mid-run)
+
+    try:
+        file_bytes = await download_file(doc.file_key)
+    except Exception as e:
+        raise HTTPException(502, f"Failed to retrieve file from storage: {e}") from e
+
+    from app.services.ai.ocr import ocr_service
+    try:
+        await ocr_service.get_or_extract(file_bytes, doc.doc_type, document_id)
+    except Exception as e:
+        raise HTTPException(502, f"OCR failed: {e}") from e
+
+    return {"ok": True, "document_id": document_id}
+
+
 @router.post("/merge", status_code=201)
 async def merge_documents(
     body: dict,
@@ -204,3 +261,64 @@ async def merge_documents(
     except ValueError as e:
         raise HTTPException(400, str(e))
     return result
+
+
+@router.post("/bundle-ocr", status_code=201)
+@limiter.limit("20/minute")
+async def bundle_ocr(
+    request: Request,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Holistic OCR across N documents — single Gemini PRO call → consolidated profile +
+    inconsistencies + missing-for-insurance. Caches by MD5(file_hashes + doc_ids)."""
+    doc_ids: list[str] = body.get("document_ids", [])
+    if len(doc_ids) < 2:
+        raise HTTPException(400, "Provide at least 2 document_ids for bundle OCR")
+    if len(doc_ids) > 8:
+        raise HTTPException(400, "Maximum 8 documents per bundle")
+
+    files: list[tuple[bytes, str]] = []
+    for did in doc_ids:
+        doc = await Document.get(did)
+        if not doc or doc.user_id != str(current_user.id):
+            raise HTTPException(404, f"Document {did} not found")
+        try:
+            fb = await download_file(doc.file_key)
+        except Exception as e:
+            raise HTTPException(502, f"Failed to fetch {did} from storage: {e}") from e
+        files.append((fb, doc.doc_type))
+
+    from app.services.ai.ocr import ocr_service
+    try:
+        result = await ocr_service.holistic_extract(
+            files=files,
+            user_id=str(current_user.id),
+            document_ids=doc_ids,
+        )
+    except Exception as e:
+        logger.error("Bundle OCR failed: %s", e)
+        raise HTTPException(502, f"Bundle OCR failed: {e}") from e
+
+    return result
+
+
+@router.get("/bundles/{bundle_id}")
+async def get_bundle(
+    bundle_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Retrieve a previously computed bundle — used by TASK-033 form auto-fill."""
+    from app.models.ocr_bundle import OCRBundle
+    bundle = await OCRBundle.get(bundle_id)
+    if not bundle or bundle.user_id != str(current_user.id):
+        raise HTTPException(404, "Bundle not found")
+    return {
+        "bundle_id": str(bundle.id),
+        "document_ids": bundle.document_ids,
+        "documents": bundle.documents,
+        "consolidated_profile": bundle.consolidated_profile,
+        "inconsistencies": bundle.inconsistencies,
+        "missing_for_insurance": bundle.missing_for_insurance,
+        "created_at": bundle.created_at,
+    }
