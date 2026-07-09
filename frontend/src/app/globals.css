@@ -93,3 +93,25 @@
   .dark .bg-red-50 { background-color: rgba(220, 38, 38, 0.12); }
   .dark .bg-purple-50 { background-color: rgba(147, 51, 234, 0.12); }
 }
+
+/* Tell the browser to render native widgets (scrollbars, select popups, date
+   pickers) in dark — fixes light-on-light native controls. */
+.dark {
+  color-scheme: dark;
+}
+
+/* Native <select>/<option> dropdowns: the browser-rendered option list ignores
+   utility classes, so force a dark surface + light text in dark mode (otherwise
+   options show light-gray text on a white popup = unreadable). Also style the
+   native calendar/date inputs' text. */
+.dark select,
+.dark select option,
+.dark select optgroup {
+  background-color: #111827;
+  color: #f3f4f6;
+}
+.dark input[type="date"],
+.dark input[type="datetime-local"],
+.dark input[type="time"] {
+  color-scheme: dark;
+}
