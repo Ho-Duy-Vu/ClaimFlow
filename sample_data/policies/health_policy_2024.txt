@@ -1,0 +1,104 @@
+# ĐIỀU KHOẢN BẢO HIỂM SỨC KHỎE CLAIMFLOW 2024
+Mã sản phẩm: CF-HEALTH-2024
+Phiên bản: 1.0 — Hiệu lực từ 01/01/2024
+
+## 1. PHẠM VI BẢO HIỂM
+
+Bảo hiểm Sức Khỏe ClaimFlow chi trả các chi phí y tế phát sinh do bệnh tật hoặc tai nạn xảy ra tại Việt Nam và một số nước trong khu vực Đông Nam Á (tùy gói), bao gồm:
+
+- Khám và điều trị ngoại trú tại bệnh viện, phòng khám được công nhận
+- Điều trị nội trú: chi phí giường bệnh, thuốc, xét nghiệm, chẩn đoán hình ảnh
+- Phẫu thuật: gồm cả phẫu thuật trong ngày (day surgery) và phẫu thuật lớn
+- Cấp cứu 24/7, vận chuyển y tế bằng xe cứu thương
+- Sinh đẻ và chăm sóc thai sản (chỉ gói Toàn Diện và Cao Cấp)
+- Nha khoa cơ bản: nhổ răng, hàn răng, lấy cao răng
+- Thuốc kê đơn theo chỉ định bác sĩ
+
+## 2. QUYỀN LỢI THEO GÓI
+
+### Gói Sức Khỏe Cơ Bản
+- Mức bồi thường tối đa: 100.000.000 VND/năm
+- Phí bảo hiểm: 2.400.000 VND/năm
+- Giường bệnh: tiêu chuẩn (4-6 giường/phòng)
+- Khám ngoại trú: 1.500.000 VND/lần khám, tối đa 20 lần/năm
+- Nội trú: chi trả 80% chi phí thực tế
+- Nha khoa cơ bản: 3.000.000 VND/năm
+- Không bao gồm: điều trị ung thư, thai sản, bệnh viện quốc tế
+
+### Gói Sức Khỏe Toàn Diện
+- Mức bồi thường tối đa: 500.000.000 VND/năm
+- Phí bảo hiểm: 8.400.000 VND/năm
+- Giường bệnh: phòng riêng tiêu chuẩn
+- Khám ngoại trú: 3.000.000 VND/lần, không giới hạn số lần
+- Nội trú: chi trả 100% chi phí thực tế
+- Phẫu thuật: bao gồm cả phẫu thuật lớn, ung thư
+- Thai sản: chi trả tối đa 30.000.000 VND/lần sinh
+- Nha khoa: 10.000.000 VND/năm bao gồm cả tủy răng
+- Khám sức khỏe định kỳ: 1 lần/năm miễn phí
+
+### Gói Sức Khỏe Cao Cấp
+- Mức bồi thường tối đa: 1.000.000.000 VND/năm
+- Phí bảo hiểm: 18.000.000 VND/năm
+- Bao gồm điều trị tại bệnh viện quốc tế trong khu vực ASEAN
+- Phòng VIP, không giới hạn ngày nằm viện
+- Bao gồm điều trị ngoài nước (Singapore, Thái Lan) trong trường hợp khẩn cấp
+- Khám sức khỏe định kỳ: 2 lần/năm miễn phí, bao gồm tầm soát ung thư
+- Phục hồi chức năng sau phẫu thuật
+- Chi trả 100% chi phí, không cần đồng chi trả
+
+## 3. ĐIỀU KIỆN BẢO HIỂM
+
+- Độ tuổi tham gia: từ 18 đến 65 tuổi
+- Thời gian chờ: 30 ngày đối với bệnh thông thường, 90 ngày đối với phẫu thuật, 270 ngày đối với thai sản
+- Khám sức khỏe đầu vào: chỉ bắt buộc với người từ 50 tuổi trở lên
+- Hợp đồng có hiệu lực 12 tháng, gia hạn tự động trừ khi yêu cầu hủy
+
+## 4. LOẠI TRỪ — KHÔNG ĐƯỢC BẢO HIỂM
+
+Các trường hợp sau KHÔNG được chi trả:
+- Bệnh có trước khi mua bảo hiểm (pre-existing conditions) không khai báo
+- Tự gây thương tích, tự tử, hành vi phạm pháp
+- Điều trị thẩm mỹ, làm đẹp, giảm cân
+- Điều trị HIV/AIDS và các bệnh lây truyền qua đường tình dục (trừ trường hợp tai nạn nghề nghiệp)
+- Sử dụng ma túy, chất kích thích
+- Tham gia thể thao mạo hiểm: leo núi, lặn sâu, đua xe
+- Chiến tranh, bạo loạn, khủng bố
+- **Thiệt hại do thiên tai (bão, lũ, sạt lở, hạn hán)** — phải dùng gói Bảo Hiểm Thiên Tai riêng
+- Bệnh tâm thần (trừ gói Cao Cấp có hỗ trợ một phần)
+
+## 5. QUY TRÌNH BỒI THƯỜNG
+
+1. **Trong vòng 30 ngày** kể từ ngày khám/điều trị, người được bảo hiểm phải gửi yêu cầu bồi thường
+2. Hồ sơ cần có:
+   - Giấy ra viện hoặc kết luận của bác sĩ
+   - Hóa đơn, chứng từ thanh toán bệnh viện
+   - Đơn thuốc và chứng từ mua thuốc
+   - CCCD/CMND của người được bảo hiểm
+3. ClaimFlow xử lý trong **5 ngày làm việc**, AI agent quét tự động
+4. Trường hợp số tiền > 50.000.000 VND, cần reviewer xét duyệt thủ công
+5. Tiền bồi thường được chuyển vào tài khoản đăng ký trong 3 ngày sau khi duyệt
+
+## 6. ĐỒNG CHI TRẢ (CO-PAYMENT)
+
+- Gói Cơ Bản: người được bảo hiểm chi trả 20% chi phí ngoại trú
+- Gói Toàn Diện: không đồng chi trả khi điều trị tại bệnh viện trong danh sách
+- Gói Cao Cấp: không đồng chi trả, bao gồm cả bệnh viện ngoài danh sách
+
+## 7. MÃ ICD ĐƯỢC BẢO HIỂM
+
+Tất cả mã ICD-10 thuộc các chương sau đều được bảo hiểm:
+- A00-B99: Bệnh nhiễm trùng và ký sinh trùng
+- C00-D49: U bướu (chỉ gói Toàn Diện trở lên)
+- E00-E89: Bệnh nội tiết, dinh dưỡng và chuyển hóa (tiểu đường, tuyến giáp)
+- I00-I99: Bệnh hệ tuần hoàn (tim mạch, huyết áp)
+- J00-J99: Bệnh hệ hô hấp (viêm phổi J18, COPD, hen suyễn)
+- K00-K95: Bệnh hệ tiêu hóa
+- M00-M99: Bệnh cơ xương khớp
+- N00-N99: Bệnh hệ tiết niệu sinh dục
+- O00-O9A: Thai sản (chỉ gói Toàn Diện trở lên, sau thời gian chờ 270 ngày)
+
+## 8. LIÊN HỆ
+
+- Hotline 24/7: 1900-CLAIMFLOW
+- Email: claims@claimflow.vn
+- Tải app ClaimFlow để theo dõi tiến độ và submit yêu cầu trực tuyến

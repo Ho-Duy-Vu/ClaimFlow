@@ -1,0 +1,166 @@
+# ĐIỀU KHOẢN BẢO HIỂM XE CỘ CLAIMFLOW 2024
+Mã sản phẩm: CF-VEHICLE-2024
+Phiên bản: 1.0 — Hiệu lực từ 01/01/2024
+
+## 1. PHẠM VI BẢO HIỂM
+
+Bảo hiểm Xe Cộ ClaimFlow chi trả thiệt hại liên quan đến phương tiện đi lại của người được bảo hiểm, bao gồm:
+
+- **Xe máy** (mọi loại trừ xe đua chuyên dụng)
+- **Ô tô cá nhân** (sedan, SUV, MPV — không bao gồm xe tải, xe khách)
+- **Xe điện** (xe máy điện, ô tô điện đăng ký hợp pháp)
+
+Các rủi ro được bảo hiểm:
+- **Tai nạn giao thông**: va chạm, tự gây tai nạn
+- **Va chạm với vật cản**: cột điện, tường, động vật trên đường
+- **Trộm cắp xe** hoặc phụ kiện (cần báo công an)
+- **Cháy nổ xe**
+- **Thiên tai**: bão, lũ lụt, ngập nước (gói Toàn Diện)
+- **Vandalism**: phá hoại có chủ ý
+- **Bồi thường bên thứ ba**: thiệt hại về người và tài sản gây ra cho người khác
+
+## 2. QUYỀN LỢI THEO GÓI
+
+### Gói Xe Máy Bảo Vệ
+- Mức bồi thường tối đa: 50.000.000 VND
+- Phí bảo hiểm: 600.000 VND/năm
+- Cover xe máy đến giá trị 50 triệu
+- Bao gồm:
+  - Sửa chữa xe sau tai nạn: tối đa 30 triệu/sự cố
+  - Bồi thường bên thứ ba: 100 triệu/người, 50 triệu/tài sản
+  - Y tế cho người điều khiển: 10 triệu/sự cố
+- KHÔNG bao gồm: trộm cắp, thiên tai
+- Khấu trừ: 500.000 VND/sự cố
+
+### Gói Ô Tô Cơ Bản
+- Mức bồi thường tối đa: 300.000.000 VND
+- Phí bảo hiểm: 3.600.000 VND/năm
+- Cover ô tô giá trị đến 500 triệu
+- Bao gồm:
+  - Sửa chữa va chạm: chi trả 100% (deductible 2 triệu)
+  - Trộm cắp xe (toàn bộ): chi trả theo giá trị thực tế
+  - Bồi thường bên thứ ba: 500 triệu/người, 300 triệu/tài sản
+  - Y tế cho người điều khiển + hành khách: 30 triệu/người
+  - Xe thay thế: KHÔNG bao gồm
+- Phụ phí cho xe > 5 năm tuổi: +10%
+
+### Gói Xe Cộ Toàn Diện
+- Mức bồi thường tối đa: 1.000.000.000 VND
+- Phí bảo hiểm: 9.600.000 VND/năm
+- Cover ô tô giá trị đến 2 tỷ
+- Bao gồm tất cả rủi ro (all-risk):
+  - Tai nạn, trộm cắp, cháy nổ, thiên tai
+  - Vandalism, mất phụ kiện
+  - Bồi thường bên thứ ba: 2 tỷ/người, 1 tỷ/tài sản
+  - Xe thay thế: miễn phí trong thời gian sửa (tối đa 30 ngày)
+  - Cứu hộ giao thông 24/7 trên toàn quốc
+  - Phí ăn ở khẩn cấp nếu sự cố xảy ra xa nhà: 2 triệu/ngày × 7 ngày
+- Không khấu trừ
+
+## 3. ĐIỀU KIỆN BẢO HIỂM
+
+### Yêu cầu đối với người điều khiển
+- Có giấy phép lái xe hợp lệ phù hợp với loại xe
+- Tuổi từ 18 trở lên với xe máy, 19 trở lên với ô tô
+- Không trong tình trạng sử dụng rượu bia, ma túy khi điều khiển
+
+### Yêu cầu đối với xe
+- Đăng ký hợp pháp, biển số chính chủ hoặc được ủy quyền
+- Đã đăng kiểm còn hiệu lực (đối với ô tô)
+- Khai báo tình trạng xe khi mua bảo hiểm (mới/cũ, số km)
+- Đối với xe điện: pin phải còn ít nhất 60% dung lượng
+
+### Thời gian chờ
+- Tai nạn: không có thời gian chờ
+- Trộm cắp: 15 ngày
+- Thiên tai: 15 ngày
+- Cháy nổ: 30 ngày
+
+## 4. LOẠI TRỪ
+
+- Người điều khiển không có giấy phép lái xe, GPLX hết hạn, GPLX giả
+- Sử dụng rượu bia (nồng độ > 50mg/100ml máu hoặc 0.25mg/L khí thở)
+- Sử dụng ma túy, chất kích thích
+- Đua xe, biểu diễn tốc độ
+- Xe chở quá tải, chở người vượt số ghế quy định
+- Xe sử dụng vào mục đích kinh doanh không khai báo (xe ôm, taxi, grab — phải dùng gói riêng)
+- Thiệt hại xảy ra ngoài lãnh thổ Việt Nam
+- Tai nạn do lỗi cố ý (tự gây để trục lợi)
+- Phụ kiện không lắp đặt từ nhà sản xuất chính hãng (đèn LED tự lắp, ống xả độ)
+- Xe đang bị tịch thu, kê biên theo luật
+
+## 5. QUY TRÌNH BỒI THƯỜNG
+
+### Quy trình chuẩn (tai nạn nhỏ)
+1. **Tại hiện trường**:
+   - Đảm bảo an toàn cho người, dừng xe an toàn
+   - Gọi ngay hotline ClaimFlow: 1900-CLAIM-247
+   - Chụp ảnh hiện trường nhiều góc
+   - Lấy thông tin liên hệ của bên liên quan (nếu có)
+2. **Trong vòng 24 giờ**: thông báo chính thức cho ClaimFlow
+3. **Trong vòng 5 ngày**: gửi hồ sơ:
+   - Đơn yêu cầu bồi thường
+   - Bản sao GPLX, đăng ký xe, đăng kiểm
+   - Biên bản công an (nếu có người bị thương hoặc thiệt hại > 50 triệu)
+   - Hình ảnh hiện trường + xe sau tai nạn
+   - Báo giá sửa chữa từ garage được công nhận
+4. **Trong 7 ngày**: ClaimFlow giám định
+5. **Trong 10 ngày**: bồi thường vào tài khoản hoặc thanh toán trực tiếp garage
+
+### Quy trình khẩn cấp (tai nạn nặng có người bị thương hoặc tử vong)
+- Gọi 113 và 115 ngay
+- Không di chuyển hiện trường đến khi công an đến
+- Gọi ClaimFlow để hỗ trợ pháp lý + cứu hộ
+- ClaimFlow cử luật sư tư vấn miễn phí
+
+### Đối với trộm cắp
+- Báo công an địa phương trong 24 giờ
+- Lấy biên bản công an
+- Chờ 30 ngày điều tra
+- Sau 30 ngày nếu không tìm được xe → ClaimFlow bồi thường toàn bộ theo giá trị thực tế
+
+## 6. CHI PHÍ SỬA CHỮA
+
+### Garage liên kết (ClaimFlow Authorized)
+- Sửa chữa không phải trả tiền trước, ClaimFlow thanh toán trực tiếp
+- Bảo hành sửa chữa 6 tháng
+- Sử dụng phụ tùng chính hãng
+
+### Garage tự chọn
+- Người được bảo hiểm trả trước, sau đó claim hoàn tiền
+- Có thể bị giảm chi phí nếu garage không có chứng chỉ
+- Cần báo giá trước khi sửa
+
+## 7. BỒI THƯỜNG BÊN THỨ BA
+
+### Thiệt hại về người
+- Chi phí cấp cứu, điều trị y tế
+- Mất thu nhập tạm thời (chứng minh bằng giấy nghỉ phép, hợp đồng lao động)
+- Bồi thường tinh thần (theo phán quyết tòa)
+- Bồi thường tử vong: theo Luật Bảo Hiểm Trách Nhiệm Dân Sự
+
+### Thiệt hại về tài sản
+- Sửa chữa, thay thế tài sản bị hư hỏng
+- Bồi thường mất thu nhập do tài sản kinh doanh hỏng
+
+## 8. KHẤU HAO XE
+
+Khi xe bị tổn thất toàn bộ:
+- Năm 1: bồi thường 100% giá mua
+- Năm 2: 90%
+- Năm 3: 80%
+- Năm 4-5: 70%
+- Sau năm 5: theo giá trị thị trường
+
+## 9. PHỤ PHÍ ĐẶC BIỆT
+
+- Xe điện: -10% phí (khuyến khích bảo vệ môi trường)
+- Người lái dưới 25 tuổi: +20% phí
+- Xe đã từng bị tai nạn nặng: +30%
+- Xe sản xuất ngoài Việt Nam (nhập khẩu nguyên chiếc): +15%
+
+## 10. LIÊN HỆ
+
+- Cứu hộ giao thông 24/7: 1900-CLAIM-247
+- Tư vấn bảo hiểm: 1900-CLAIMFLOW
+- Email: vehicle@claimflow.vn

@@ -1,0 +1,138 @@
+# ĐIỀU KHOẢN BẢO HIỂM NHÂN THỌ CLAIMFLOW 2024
+Mã sản phẩm: CF-LIFE-2024
+Phiên bản: 1.0 — Hiệu lực từ 01/01/2024
+
+## 1. PHẠM VI BẢO HIỂM
+
+Bảo hiểm Nhân Thọ ClaimFlow bảo vệ tài chính cho gia đình người được bảo hiểm trong các trường hợp:
+
+- **Tử vong** do bệnh tật hoặc tai nạn
+- **Thương tật toàn bộ vĩnh viễn** (mất khả năng lao động hoàn toàn)
+- **Bệnh hiểm nghèo** (ung thư, đột quỵ, suy thận giai đoạn cuối, nhồi máu cơ tim — gói Nâng Cao trở lên)
+- **Tích lũy đầu tư dài hạn** (gói Tích Lũy và Hưu Trí)
+
+## 2. QUYỀN LỢI THEO GÓI
+
+### Gói Nhân Thọ Bảo Vệ
+- Số tiền bảo hiểm: 500.000.000 VND
+- Phí bảo hiểm: 6.000.000 VND/năm
+- Bao gồm: tử vong và thương tật toàn bộ vĩnh viễn
+- Không có giá trị hoàn lại — pure protection
+- Thời hạn: 20 năm hoặc đến 65 tuổi (chọn ngắn hơn)
+
+### Gói Nhân Thọ Tích Lũy
+- Số tiền bảo hiểm: 1.000.000.000 VND
+- Phí bảo hiểm: 15.000.000 VND/năm
+- Bao gồm: bảo vệ + tích lũy đầu tư
+- 10 bệnh hiểm nghèo (ung thư, nhồi máu cơ tim, đột quỵ, suy thận, ghép tạng...)
+- Lãi suất đầu tư tham gia ~6-8%/năm
+- Quyền rút tiền sau 5 năm: tối đa 50% giá trị tài khoản
+- Hoàn vốn nếu sống đến hết thời hạn hợp đồng
+
+### Gói Nhân Thọ Hưu Trí
+- Số tiền bảo hiểm: 2.000.000.000 VND
+- Phí bảo hiểm: 30.000.000 VND/năm
+- Bao gồm: bảo vệ + tích lũy + thu nhập hưu trí
+- 30 bệnh hiểm nghèo
+- Thu nhập hưu trí định kỳ từ tuổi 60: tối đa 20.000.000 VND/tháng
+- Lựa chọn nhận một lần hoặc trả góp hàng tháng
+- Bảo vệ giá trị do lạm phát (điều chỉnh số tiền bảo hiểm 3%/năm)
+
+## 3. ĐIỀU KIỆN BẢO HIỂM
+
+- Độ tuổi tham gia: từ 18 đến 60 tuổi
+- Khám sức khỏe: bắt buộc với người trên 40 tuổi hoặc số tiền bảo hiểm > 1 tỷ VND
+- Thời gian chờ:
+  - Tử vong do tai nạn: không có thời gian chờ
+  - Tử vong do bệnh tật: 90 ngày kể từ ngày ký hợp đồng
+  - Bệnh hiểm nghèo: 180 ngày
+  - Thương tật toàn bộ vĩnh viễn: 30 ngày
+- Phí được đóng hàng năm, có thể chuyển sang đóng quý/tháng (phí tăng 5%)
+- Có thể tạm dừng đóng phí tối đa 12 tháng sau năm thứ 3
+
+## 4. LOẠI TRỪ
+
+Các trường hợp KHÔNG được chi trả:
+- Tự sát trong vòng 2 năm đầu hợp đồng
+- Tử vong/thương tật do người được bảo hiểm cố ý gây ra
+- Bệnh có trước khi mua bảo hiểm và không khai báo (pre-existing)
+- Tử vong do sử dụng ma túy, rượu say
+- Tham gia tội phạm, chiến tranh, bạo loạn
+- Tham gia thể thao mạo hiểm: dù lượn, leo núi vực sâu, đua xe chuyên nghiệp
+- Bay (lái) máy bay tư nhân hoặc tàu lượn
+- Tử vong/thương tật do AIDS
+
+## 5. BỆNH HIỂM NGHÈO ĐƯỢC BẢO HIỂM
+
+Gói Nhân Thọ Tích Lũy và Hưu Trí bao gồm chi trả khi chẩn đoán mắc:
+
+1. **Ung thư xâm lấn** (tất cả loại trừ ung thư da không hắc tố giai đoạn 1)
+2. **Nhồi máu cơ tim** (heart attack) với enzym tim tăng
+3. **Đột quỵ** (stroke) với di chứng thần kinh > 6 tuần
+4. **Phẫu thuật bắc cầu mạch vành**
+5. **Suy thận giai đoạn cuối** cần lọc máu thường xuyên
+6. **Ghép tạng** (gan, tim, phổi, tụy, tủy xương)
+7. **Hôn mê** kéo dài > 96 giờ
+8. **Bại liệt** (paralysis) toàn bộ chi
+9. **Mất thính giác/thị giác** vĩnh viễn cả hai bên
+10. **Bệnh Parkinson, Alzheimer giai đoạn nặng**
+
+Gói Hưu Trí mở rộng thêm 20 bệnh khác bao gồm: u não lành tính, lupus ban đỏ, viêm gan virus mạn tính tiến triển, AIDS do truyền máu, mất tay/chân do tai nạn.
+
+## 6. QUY TRÌNH BỒI THƯỜNG
+
+### Đối với tử vong
+1. Người thân thông báo cho ClaimFlow trong vòng 30 ngày
+2. Hồ sơ cần có:
+   - Giấy chứng tử bản gốc
+   - Giấy báo tử của bệnh viện hoặc CA
+   - CCCD/CMND của người được bảo hiểm và người thừa kế
+   - Giấy tờ chứng minh quan hệ thừa kế
+3. ClaimFlow thẩm định trong 15 ngày làm việc
+4. Chuyển khoản cho người thụ hưởng trong 3 ngày sau khi duyệt
+
+### Đối với thương tật toàn bộ vĩnh viễn
+1. Gửi yêu cầu khi thương tật đã ổn định (thường sau 6 tháng điều trị)
+2. Kèm theo:
+   - Giấy chứng nhận thương tật từ Hội đồng Giám định Y khoa
+   - Hồ sơ điều trị bệnh viện
+   - Đơn yêu cầu bồi thường
+3. Có thể yêu cầu khám lại nếu nghi ngờ — chi phí khám do ClaimFlow chịu
+4. Chi trả một lần toàn bộ số tiền bảo hiểm
+
+### Đối với bệnh hiểm nghèo
+1. Gửi yêu cầu trong vòng 60 ngày kể từ ngày được chẩn đoán
+2. Hồ sơ cần có chẩn đoán chính thức từ bác sĩ chuyên khoa
+3. ClaimFlow có thể yêu cầu khám/xét nghiệm xác nhận tại cơ sở y tế chỉ định
+4. Chi trả 100% số tiền bảo hiểm khi xác nhận, sau đó hợp đồng chấm dứt
+5. Nếu là gói Tích Lũy → vẫn nhận được phần tích lũy đầu tư đến thời điểm đó
+
+## 7. NGƯỜI THỤ HƯỞNG
+
+- Khai báo ít nhất 1 người thụ hưởng khi ký hợp đồng
+- Có thể chỉ định nhiều người thụ hưởng với tỷ lệ %
+- Người thụ hưởng phải có quan hệ huyết thống, hôn nhân, hoặc được pháp luật công nhận
+- Có thể thay đổi người thụ hưởng bất kỳ lúc nào miễn phí
+- Nếu không có người thụ hưởng → tiền bảo hiểm thuộc về di sản, chia theo Luật Thừa Kế
+
+## 8. QUYỀN LỢI BỔ SUNG
+
+- **Miễn phí khám sức khỏe** 1 lần/2 năm (gói Tích Lũy và Hưu Trí)
+- **Tư vấn pháp lý miễn phí** về di chúc, thừa kế
+- **Hỗ trợ tâm lý** cho gia đình sau khi xảy ra sự kiện bảo hiểm
+- **Quyền gia hạn** không cần khám lại sức khỏe đến tuổi 75
+
+## 9. KẾT HỢP VỚI CÁC GÓI BẢO HIỂM KHÁC
+
+ClaimFlow khuyến khích combo:
+- **Nhân thọ + Sức khỏe**: bảo vệ tài chính + chi phí điều trị
+- **Nhân thọ + Thiên tai** (cho vùng rủi ro cao): bảo vệ trụ cột gia đình kép
+- **Nhân thọ + Thu nhập**: bảo vệ thu nhập khi sống và bảo vệ gia đình khi tử vong
+
+Combo nhận giảm giá 8-12% phí bảo hiểm tổng.
+
+## 10. LIÊN HỆ
+
+- Tư vấn: 1900-CLAIMFLOW
+- Email: life@claimflow.vn
+- Yêu cầu bồi thường: claims@claimflow.vn hoặc qua app ClaimFlow

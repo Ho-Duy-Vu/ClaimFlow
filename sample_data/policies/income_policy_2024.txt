@@ -1,0 +1,179 @@
+# ĐIỀU KHOẢN BẢO HIỂM THU NHẬP & AN SINH CLAIMFLOW 2024
+Mã sản phẩm: CF-INCOME-2024
+Phiên bản: 1.0 — Hiệu lực từ 01/01/2024
+
+## 1. PHẠM VI BẢO HIỂM
+
+Bảo hiểm Thu Nhập ClaimFlow bảo vệ thu nhập của người lao động trong các tình huống mất khả năng kiếm tiền, bao gồm:
+
+- **Mất việc làm không tự nguyện** (bị sa thải, công ty phá sản, cắt giảm nhân sự)
+- **Tai nạn lao động** dẫn đến không thể làm việc tạm thời
+- **Bệnh nghề nghiệp** được công nhận
+- **Tàn tật một phần hoặc toàn bộ** ảnh hưởng đến khả năng lao động
+- **Bệnh hiểm nghèo dài hạn** không thể tiếp tục công việc (gói Toàn Diện)
+
+## 2. QUYỀN LỢI THEO GÓI
+
+### Gói Bảo Hiểm Thất Nghiệp
+- Mức bồi thường tối đa: 60.000.000 VND
+- Phí bảo hiểm: 1.800.000 VND/năm
+- Bao gồm:
+  - Chi trả 10 triệu VND/tháng × tối đa 6 tháng
+  - Hỗ trợ chi phí đào tạo nghề mới: 5.000.000 VND/khóa
+  - Tư vấn việc làm miễn phí qua đối tác tuyển dụng
+- Điều kiện chi trả:
+  - Phải làm việc đủ 12 tháng trước khi mất việc
+  - Có quyết định chấm dứt hợp đồng lao động hợp pháp
+  - Không tự nguyện nghỉ việc
+
+### Gói Bảo Vệ Thu Nhập
+- Mức bồi thường tối đa: 120.000.000 VND
+- Phí bảo hiểm: 4.200.000 VND/năm
+- Bao gồm tất cả gói Thất Nghiệp +:
+  - Tai nạn lao động: 50 triệu/sự cố
+  - Bệnh nghề nghiệp: chi trả theo mức độ
+  - Tàn tật một phần (10-50% sức lao động): 50 triệu chi trả 1 lần
+  - Tàn tật toàn bộ (> 50%): 120 triệu chi trả 1 lần
+  - Hỗ trợ thu nhập tạm thời khi nghỉ điều trị: 8 triệu/tháng × 12 tháng
+
+### Gói An Sinh Toàn Diện
+- Mức bồi thường tối đa: 300.000.000 VND
+- Phí bảo hiểm: 9.600.000 VND/năm
+- Bao gồm tất cả gói Bảo Vệ +:
+  - Bệnh hiểm nghèo (20 loại) dẫn đến không thể làm việc: chi trả 1 lần 200 triệu
+  - Thu nhập tạm thời: 15 triệu/tháng × 24 tháng
+  - Hỗ trợ tâm lý sau biến cố
+  - Đào tạo lại nghề: tối đa 20 triệu/khóa, 2 khóa/năm
+  - Hỗ trợ gia đình: 5 triệu/tháng cho gia đình có con nhỏ trong thời gian chữa bệnh
+  - Tư vấn pháp lý lao động miễn phí
+
+## 3. ĐIỀU KIỆN BẢO HIỂM
+
+### Đối tượng tham gia
+- Người lao động Việt Nam từ 18-55 tuổi
+- Đang có hợp đồng lao động chính thức ≥ 6 tháng
+- Đóng BHXH đầy đủ tại thời điểm mua bảo hiểm
+- Tự kinh doanh: cần đăng ký kinh doanh và đóng thuế ≥ 1 năm
+
+### Thời gian chờ
+- Mất việc: 90 ngày (tránh người sắp mất việc mua)
+- Tai nạn lao động: 30 ngày
+- Bệnh nghề nghiệp: 180 ngày
+- Tàn tật: 30 ngày
+- Bệnh hiểm nghèo: 180 ngày
+
+### Mức bồi thường thu nhập
+- Tối đa 80% thu nhập bình quân 6 tháng trước sự kiện
+- Không vượt quá mức trần của gói
+
+## 4. ĐỊNH NGHĨA "MẤT VIỆC KHÔNG TỰ NGUYỆN"
+
+Được bảo hiểm:
+- Bị sa thải đơn phương từ công ty (kèm quyết định)
+- Công ty phá sản, giải thể
+- Cắt giảm nhân sự do tái cơ cấu (lay-off)
+- Hết hợp đồng lao động không được gia hạn (do quyết định của công ty)
+- Chấm dứt hợp đồng do vi phạm của công ty (chứng minh được)
+
+KHÔNG được bảo hiểm:
+- Tự nguyện nghỉ việc
+- Nghỉ việc do mâu thuẫn cá nhân
+- Bị sa thải do vi phạm kỷ luật, tham nhũng
+- Hết thử việc không được nhận chính thức
+- Chuyển công ty trong cùng tập đoàn
+
+## 5. ĐỊNH NGHĨA "BỆNH NGHỀ NGHIỆP"
+
+Là các bệnh xuất hiện do điều kiện làm việc, được Bộ Y tế công nhận, bao gồm:
+- Bệnh phổi do bụi (silicosis, asbestosis): công nhân khai khoáng, dệt may
+- Mất thính giác do tiếng ồn nghề nghiệp
+- Bệnh do hóa chất (ngộ độc chì, thủy ngân)
+- Bệnh do tia phóng xạ
+- Bệnh cột sống do tư thế làm việc
+- Hội chứng ống cổ tay (carpal tunnel) — nhân viên văn phòng
+- Trầm cảm/lo âu do áp lực công việc (chỉ gói Toàn Diện, cần xác nhận từ bác sĩ tâm thần)
+
+## 6. LOẠI TRỪ
+
+- Tai nạn/bệnh có trước khi mua bảo hiểm và không khai báo
+- Tai nạn do người được bảo hiểm cố ý gây ra
+- Tai nạn do sử dụng rượu bia, ma túy
+- Tham gia tội phạm
+- Chiến tranh, bạo loạn
+- Tham gia thể thao mạo hiểm chuyên nghiệp
+- Tự gây thương tích để trục lợi bảo hiểm
+- Không tuân thủ quy định an toàn lao động (không đeo bảo hộ, không qua đào tạo)
+
+## 7. QUY TRÌNH BỒI THƯỜNG
+
+### Đối với mất việc
+1. **Trong 30 ngày** kể từ ngày nghỉ việc, gửi yêu cầu cho ClaimFlow
+2. Hồ sơ cần có:
+   - Quyết định chấm dứt hợp đồng (bản gốc)
+   - Sổ BHXH bản chính
+   - 6 bảng lương gần nhất (xác định mức thu nhập)
+   - CCCD
+   - Cam kết đang tích cực tìm việc mới
+3. Thẩm định trong 15 ngày
+4. Chi trả hàng tháng vào tài khoản, tự động ngừng khi:
+   - Tìm được việc mới và thông báo cho ClaimFlow
+   - Hết 6 tháng (đối với gói Thất Nghiệp)
+   - Không cập nhật tình trạng tìm việc 2 tháng liên tiếp
+
+### Đối với tai nạn lao động / bệnh nghề nghiệp
+1. **Trong 7 ngày** thông báo sự cố
+2. Hồ sơ cần có:
+   - Biên bản tai nạn lao động (theo Bộ Luật Lao Động)
+   - Giấy chứng nhận thương tật từ Hội đồng Giám định Y khoa
+   - Hồ sơ điều trị
+   - Xác nhận của doanh nghiệp về việc tai nạn xảy ra trong giờ làm
+3. Thẩm định + chi trả trong 30 ngày
+
+### Đối với tàn tật
+1. Khám tại Hội đồng Giám định Y khoa
+2. Xác định mức độ tàn tật (%)
+3. ClaimFlow chi trả theo bảng quy đổi:
+   - 10-30%: 30% mức bảo hiểm
+   - 31-50%: 50% mức bảo hiểm
+   - 51-70%: 80% mức bảo hiểm
+   - > 70%: 100% mức bảo hiểm
+
+## 8. QUYỀN LỢI BỔ SUNG
+
+### Đào tạo nghề
+- Liên kết với 50+ trung tâm đào tạo nghề trên toàn quốc
+- Khóa học: lập trình, marketing, làm đẹp, sửa chữa, ngoại ngữ
+- Hỗ trợ học phí: 5 triệu (gói Thất Nghiệp), 20 triệu (gói An Sinh)
+- Cấp chứng chỉ được công nhận sau khi hoàn thành
+
+### Tư vấn việc làm
+- Kết nối với 200+ nhà tuyển dụng đối tác
+- CV review miễn phí
+- Mock interview với chuyên gia HR
+- Ưu tiên giới thiệu cho công việc phù hợp
+
+### Hỗ trợ tâm lý
+- 10 buổi tư vấn tâm lý miễn phí với chuyên gia (gói Toàn Diện)
+- Group support trực tuyến với người cùng hoàn cảnh
+
+## 9. ĐIỀU CHỈNH SỐ TIỀN BẢO HIỂM
+
+Người được bảo hiểm có thể yêu cầu điều chỉnh mức bảo hiểm hàng năm:
+- Tăng mức: cần khai báo lại thu nhập + có thể yêu cầu khám sức khỏe
+- Giảm mức: không hạn chế
+- Thay đổi gói: từ gói thấp lên gói cao yêu cầu thời gian chờ lại 90 ngày cho phần chênh lệch
+
+## 10. KẾT HỢP GÓI
+
+ClaimFlow khuyến khích combo:
+- **Income + Health**: bảo vệ thu nhập + chi phí điều trị
+- **Income + Life**: bảo vệ thu nhập khi sống + tài chính khi mất
+- **Income + Disaster** (cho người làm nghề tự do vùng thiên tai): bảo vệ kép
+
+Combo giảm 10-15% phí tổng.
+
+## 11. LIÊN HỆ
+
+- Hotline: 1900-CLAIMFLOW
+- Email: income@claimflow.vn
+- App ClaimFlow: theo dõi tiến độ chi trả hàng tháng

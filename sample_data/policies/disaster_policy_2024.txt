@@ -1,0 +1,126 @@
+# ĐIỀU KHOẢN BẢO HIỂM THIÊN TAI CLAIMFLOW 2024
+Mã sản phẩm: CF-DISASTER-2024
+Phiên bản: 1.0 — Hiệu lực từ 01/01/2024
+
+## 1. PHẠM VI BẢO HIỂM
+
+Bảo hiểm Thiên Tai ClaimFlow chi trả các thiệt hại do thiên tai gây ra trên lãnh thổ Việt Nam, đặc biệt thiết kế cho các tỉnh có rủi ro cao như Quảng Bình, Hà Tĩnh, Nghệ An, Quảng Nam, Thừa Thiên Huế, Quảng Trị, Quảng Ngãi, Bình Định. Các loại thiên tai được bảo hiểm:
+
+- **Bão** (typhoon, áp thấp nhiệt đới)
+- **Lũ lụt** (flood, lũ quét, lũ ống)
+- **Sạt lở đất** (landslide, đất đá lăn)
+- **Ngập úng** (inundation, đặc biệt vùng đồng bằng)
+- **Hạn hán** (drought, ảnh hưởng nông nghiệp)
+- **Sạt lở bờ biển, bờ sông** (erosion)
+- **Lốc xoáy, mưa đá** (tornado, hailstorm)
+
+## 2. THIỆT HẠI ĐƯỢC BẢO HIỂM
+
+Bảo hiểm chi trả các thiệt hại sau:
+
+### Thiệt hại tài sản
+- Nhà ở: tốc mái, sập tường, ngập nước, sạt lở
+- Đồ nội thất, thiết bị điện gia dụng
+- Phương tiện đi lại bị ngập, bị tốc do gió bão
+- Tài sản kinh doanh (kho hàng, cửa hàng) bị thiệt hại
+
+### Thiệt hại nông nghiệp
+- Mất mùa do bão, lũ lụt phá hoại
+- Vật nuôi bị chết do thiên tai (gia súc, gia cầm, thủy sản)
+- Ao nuôi tôm/cá bị ngập, vỡ bờ
+
+### Chi phí phát sinh
+- Chi phí sơ tán khẩn cấp (vé xe, tạm cư khách sạn)
+- Chi phí tái định cư tạm thời (gói Toàn Diện)
+- Y tế thương tích do thiên tai
+- Chi phí dọn dẹp, sửa chữa khẩn cấp
+
+### Gián đoạn kinh doanh
+- Mất thu nhập tạm thời do hoạt động kinh doanh ngừng (gói Nâng Cao trở lên)
+- Tối đa 6 tháng mất thu nhập
+
+## 3. QUYỀN LỢI THEO GÓI
+
+### Gói Thiên Tai Cơ Bản
+- Mức bồi thường tối đa: 100.000.000 VND/sự kiện
+- Phí bảo hiểm: 1.200.000 VND/năm
+- Bao gồm: bão, lũ lụt, sạt lở, ngập úng
+- KHÔNG bao gồm: gián đoạn kinh doanh, tái định cư, hạn hán
+
+### Gói Thiên Tai Nâng Cao
+- Mức bồi thường tối đa: 500.000.000 VND/sự kiện
+- Phí bảo hiểm: 4.800.000 VND/năm
+- Bao gồm tất cả 7 loại thiên tai
+- Mất mùa nông nghiệp: tối đa 200.000.000 VND
+- Gián đoạn kinh doanh: tối đa 50.000.000 VND/tháng × 3 tháng
+- Y tế thương tích do thiên tai: 30.000.000 VND/người
+
+### Gói Thiên Tai Toàn Diện
+- Mức bồi thường tối đa: 2.000.000.000 VND/sự kiện
+- Phí bảo hiểm: 12.000.000 VND/năm
+- Bao gồm tất cả loại thiên tai + thảm họa thứ cấp (dịch bệnh sau lũ lụt)
+- Tái định cư tạm thời: tối đa 50.000.000 VND/gia đình × 6 tháng
+- Gián đoạn kinh doanh: 100.000.000 VND/tháng × 6 tháng
+- Nhân thọ thiên tai: 500.000.000 VND nếu người được bảo hiểm tử vong do thiên tai
+- Tư vấn pháp lý miễn phí cho yêu cầu hỗ trợ chính phủ
+
+## 4. ĐIỀU KIỆN BẢO HIỂM
+
+- Hợp đồng có hiệu lực sau 15 ngày kể từ ngày ký (thời gian chờ)
+- Nếu mua trong khi đang có cảnh báo thiên tai từ Trung tâm Khí tượng Thủy văn → KHÔNG có hiệu lực với sự kiện đó
+- Đối với vùng rủi ro cao (Quảng Bình, Hà Tĩnh...) phí bảo hiểm được điều chỉnh tăng 20%
+- Yêu cầu khai báo địa chỉ chính xác để tính rủi ro theo tỉnh
+
+## 5. LOẠI TRỪ — KHÔNG ĐƯỢC BẢO HIỂM
+
+- Thiệt hại do người được bảo hiểm cố ý gây ra
+- Thiệt hại đã có sẵn trước khi mua bảo hiểm (kết cấu nhà yếu, nhà bỏ hoang)
+- Tài sản không khai báo trong hợp đồng
+- Thiệt hại do chiến tranh, bạo loạn, hành động khủng bố
+- Thiệt hại gián tiếp (mất giá đất, danh tiếng)
+- Tiền mặt, vàng, đá quý, tài sản cá nhân giá trị cao không đăng ký riêng
+- Phương tiện đang lưu thông trên đường khi xảy ra thiên tai (dùng bảo hiểm xe cộ)
+- Thiệt hại y tế do bệnh thông thường — phải dùng Bảo Hiểm Sức Khỏe
+- Sự kiện thiên tai xảy ra trước ngày 16 từ khi ký hợp đồng
+
+## 6. QUY TRÌNH BỒI THƯỜNG
+
+1. **Trong vòng 7 ngày** kể từ khi thiên tai xảy ra, người được bảo hiểm phải thông báo cho ClaimFlow
+2. **Trong vòng 30 ngày**, gửi hồ sơ đầy đủ qua app hoặc website
+3. Hồ sơ cần có:
+   - Mô tả chi tiết sự kiện (thời gian, địa điểm, loại thiên tai)
+   - Hình ảnh thiệt hại (chụp từ nhiều góc)
+   - Xác nhận của UBND xã/phường về việc thiên tai xảy ra
+   - Báo cáo từ Trung tâm Khí tượng Thủy văn hoặc báo chí
+   - Hóa đơn, chứng từ sửa chữa (nếu đã sửa)
+   - Bảng kê tài sản bị thiệt hại với giá ước tính
+4. ClaimFlow cử người đi giám định trong vòng 5 ngày làm việc
+5. Bồi thường được chi trả trong vòng 15 ngày sau khi giám định
+6. Trường hợp số tiền > 500.000.000 VND, cần ít nhất 2 reviewer + Director phê duyệt
+
+## 7. CHI TRẢ KHẨN CẤP
+
+Trong trường hợp thiên tai diện rộng (như bão lớn ảnh hưởng nhiều tỉnh), ClaimFlow áp dụng cơ chế **chi trả khẩn cấp**:
+- Ứng trước 30% mức bồi thường ước tính trong 48 giờ
+- Phần còn lại chi trả sau khi giám định
+- Áp dụng cho gói Nâng Cao và Toàn Diện
+
+## 8. KHẤU TRỪ (DEDUCTIBLE)
+
+- Gói Cơ Bản: khấu trừ 5.000.000 VND/sự kiện
+- Gói Nâng Cao: khấu trừ 2.000.000 VND/sự kiện
+- Gói Toàn Diện: không khấu trừ
+
+## 9. LƯU Ý CHO VÙNG RỦI RO CAO
+
+Đối với các tỉnh miền Trung Việt Nam có rủi ro thiên tai cao, ClaimFlow khuyến khích kết hợp với:
+- Bảo hiểm Tài sản (cho nhà ở giá trị lớn)
+- Bảo hiểm Nhân thọ (bảo vệ trụ cột gia đình)
+- Bảo hiểm Thu nhập (gián đoạn lao động dài hạn)
+
+Combo này có thể nhận giảm giá 10-15% phí bảo hiểm tổng.
+
+## 10. LIÊN HỆ KHẨN CẤP
+
+- Hotline cứu trợ 24/7: 1900-CLAIM-911
+- Trong tình huống khẩn cấp, có thể nhận hỗ trợ qua chatbot ClaimFlow để được tư vấn tức thời

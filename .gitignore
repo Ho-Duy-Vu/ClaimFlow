@@ -53,6 +53,11 @@ uploads/
 sample_data/policies/*.txt
 sample_data/policies/*.pdf
 
+# Exception: sample_data is demo data — DO commit it (overrides the media/uploads
+# ignores above). Runtime uploads still ignored elsewhere.
+!sample_data/
+!sample_data/**
+
 # Logs
 *.log
 logs/
