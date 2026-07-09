@@ -635,6 +635,8 @@
     "voidConfirm": "Void",
     "voidSuccess": "Policy voided",
     "voidFailed": "Failed to void policy",
+    "viewFile": "Click to view file",
+    "docOpenFailed": "Couldn't open the file, try again later",
     "sectionIncident": "Incident Details",
     "incidentDate": "Incident date",
     "incidentType": "Incident type",

@@ -134,7 +134,10 @@ async def get_download_url(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     doc = await Document.get(document_id)
-    if not doc or doc.user_id != str(current_user.id):
+    # Owner can always view; reviewer/admin can view any doc (needed to inspect
+    # evidence during manual claim review).
+    is_privileged = current_user.role in ("reviewer", "admin")
+    if not doc or (doc.user_id != str(current_user.id) and not is_privileged):
         raise HTTPException(404, "Document not found")
     return {"presigned_url": get_presigned_url(doc.file_key)}
 

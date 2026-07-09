@@ -635,6 +635,8 @@
     "voidConfirm": "Vô hiệu hoá",
     "voidSuccess": "Đã vô hiệu hoá gói bảo hiểm",
     "voidFailed": "Vô hiệu hoá thất bại",
+    "viewFile": "Bấm để xem file",
+    "docOpenFailed": "Không mở được file, thử lại sau",
     "sectionIncident": "Chi tiết sự cố",
     "incidentDate": "Ngày sự cố",
     "incidentType": "Loại sự cố",

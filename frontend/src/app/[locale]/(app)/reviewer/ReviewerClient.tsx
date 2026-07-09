@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import {
-  AlertTriangle, Ban, CheckCircle, Clock, Copy, FileText, Loader2,
+  AlertTriangle, Ban, CheckCircle, Clock, Copy, ExternalLink, FileText, Loader2,
   RefreshCw, ShieldAlert, ShieldCheck, User as UserIcon, Wallet, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -360,6 +360,20 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
   const [txRef, setTxRef] = useState('');
   const [paying, setPaying] = useState(false);
 
+  // Open an evidence/supporting doc in a new tab (reviewer needs to inspect files)
+  const [openingDoc, setOpeningDoc] = useState<string | null>(null);
+  const openDoc = async (id: string) => {
+    setOpeningDoc(id);
+    try {
+      const r = await api.get<{ presigned_url: string }>(`/documents/${id}/download-url`);
+      window.open(r.data.presigned_url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast.error(t('docOpenFailed'));
+    } finally {
+      setOpeningDoc(null);
+    }
+  };
+
   // Void linked policy (reviewer/admin power khi phát hiện bất thường)
   const [showVoid, setShowVoid] = useState(false);
   const [voidReason, setVoidReason] = useState('');
@@ -638,9 +652,8 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
               <p className="text-xs text-gray-500 mb-1">{t('evidenceFiles')} ({claim.evidence_files.length})</p>
               <ul className="text-sm mb-2 space-y-1">
                 {claim.evidence_files.map((d) => (
-                  <li key={d.id} className="flex items-center gap-2 text-gray-600">
-                    <FileText size={12} className="text-amber-600" /> {d.file_name}
-                    <span className="text-xs text-gray-400">({d.doc_type})</span>
+                  <li key={d.id}>
+                    <DocButton d={d} accent="text-amber-600" opening={openingDoc === d.id} onOpen={() => openDoc(d.id)} viewLabel={t('viewFile')} />
                   </li>
                 ))}
               </ul>
@@ -651,9 +664,8 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
               <p className="text-xs text-gray-500 mb-1">{t('supportingDocs')} ({claim.documents.length})</p>
               <ul className="text-sm space-y-1">
                 {claim.documents.map((d) => (
-                  <li key={d.id} className="flex items-center gap-2 text-gray-600">
-                    <FileText size={12} /> {d.file_name}
-                    <span className="text-xs text-gray-400">({d.doc_type})</span>
+                  <li key={d.id}>
+                    <DocButton d={d} accent="text-gray-500" opening={openingDoc === d.id} onOpen={() => openDoc(d.id)} viewLabel={t('viewFile')} />
                   </li>
                 ))}
               </ul>
@@ -998,5 +1010,30 @@ function InfoCell({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-gray-500">{label}</p>
       <p className="text-sm font-medium">{value}</p>
     </div>
+  );
+}
+
+function DocButton({ d, accent, opening, onOpen, viewLabel }: {
+  d: { id: string; doc_type: string; file_name: string };
+  accent: string;
+  opening: boolean;
+  onOpen: () => void;
+  viewLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={opening}
+      title={viewLabel}
+      className="group w-full flex items-center gap-2 text-left rounded-md px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-950/30 disabled:opacity-60"
+    >
+      {opening
+        ? <Loader2 size={12} className="animate-spin shrink-0" />
+        : <FileText size={12} className={`${accent} shrink-0`} />}
+      <span className="truncate text-blue-700 group-hover:underline">{d.file_name}</span>
+      <span className="text-xs text-gray-400 shrink-0">({d.doc_type})</span>
+      <ExternalLink size={11} className="ml-auto shrink-0 text-gray-400" />
+    </button>
   );
 }
