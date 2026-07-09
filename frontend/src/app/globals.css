@@ -57,3 +57,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Dark-mode overrides for HARDCODED neutral utilities.
+   Most feature components use literal `bg-white` / `text-gray-*` / `border-gray-*`
+   instead of semantic tokens, so a plain `.dark` class flip left them light
+   (white cards glaring, gray text washing out). These scoped overrides remap the
+   neutral surfaces/text/borders for dark mode only. Colored accents and gradients
+   / text-white are intentionally left untouched. Scoped under `.dark` → light
+   mode is completely unaffected.
+   ────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .dark .bg-white { background-color: #111827; }           /* gray-900 — cards/modals */
+  .dark .bg-gray-50 { background-color: #0f172a; }          /* section / footer bg */
+  .dark .bg-gray-100 { background-color: #1f2937; }
+  .dark .hover\:bg-gray-50:hover { background-color: #1f2937; }
+  .dark .hover\:bg-gray-100:hover { background-color: #374151; }
+
+  .dark .text-gray-900 { color: #f3f4f6; }
+  .dark .text-gray-800 { color: #e5e7eb; }
+  .dark .text-gray-700 { color: #d1d5db; }
+  .dark .text-gray-600 { color: #cbd5e1; }
+  .dark .text-gray-500 { color: #9ca3af; }
+  .dark .text-gray-400 { color: #6b7280; }
+
+  .dark .border-gray-100,
+  .dark .border-gray-200,
+  .dark .border-gray-300 { border-color: #334155; }
+
+  /* Soften very-light accent banner backgrounds so they don't glare on dark */
+  .dark .bg-blue-50 { background-color: rgba(37, 99, 235, 0.12); }
+  .dark .bg-green-50 { background-color: rgba(22, 163, 74, 0.12); }
+  .dark .bg-amber-50 { background-color: rgba(217, 119, 6, 0.12); }
+  .dark .bg-orange-50 { background-color: rgba(234, 88, 12, 0.12); }
+  .dark .bg-red-50 { background-color: rgba(220, 38, 38, 0.12); }
+  .dark .bg-purple-50 { background-color: rgba(147, 51, 234, 0.12); }
+}
