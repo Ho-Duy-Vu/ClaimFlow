@@ -5,15 +5,15 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   AlertTriangle, ArrowRight, Briefcase, Calendar, Car, CheckCircle,
-  ClipboardList, Clock, Download, ExternalLink, FileText, Heart, Home, Info,
-  Loader2, Mail, MapPin, Shield, ShieldCheck, Trash2, User as UserIcon, Wallet, X,
+  ClipboardList, Clock, CreditCard, Download, ExternalLink, FileText, Heart, Home, Info,
+  Loader2, Mail, MapPin, Receipt, RefreshCw, Shield, ShieldCheck, Trash2, User as UserIcon, Wallet, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { PolicyTermsModal } from '@/components/policies/PolicyTermsModal';
 import api from '@/lib/api';
-import type { Claim, User, UserPolicy } from '@/types';
+import type { Claim, PaymentSummary, PolicyPayment, User, UserPolicy } from '@/types';
 
 type PolicyType = 'health' | 'life' | 'property' | 'vehicle' | 'disaster' | 'income';
 type TabKey = 'mine' | 'history' | 'browse';
@@ -391,7 +391,22 @@ function PolicyDetailModal({
   const [related, setRelated] = useState<Claim[]>([]);
   const [loadingClaims, setLoadingClaims] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const renewPolicy = async () => {
+    setRenewing(true);
+    try {
+      await api.post(`/policies/${policy.id}/renew`);
+      toast.success(t('renewSuccess'));
+      onChanged();
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail ?? t('renewFailed'));
+    } finally {
+      setRenewing(false);
+    }
+  };
 
   const downloadContract = async () => {
     setDownloadingPdf(true);
@@ -503,6 +518,29 @@ function PolicyDetailModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Expiry / renew banner */}
+          {(policy.status === 'expired' || (isActive && daysLeft != null && daysLeft < 30)) && (
+            <div className={`rounded-xl border p-4 flex items-start gap-3 ${
+              policy.status === 'expired'
+                ? 'bg-red-50 border-red-200'
+                : 'bg-orange-50 border-orange-200'
+            }`}>
+              <AlertTriangle size={18} className={policy.status === 'expired' ? 'text-red-500 mt-0.5' : 'text-orange-500 mt-0.5'} />
+              <div className="flex-1">
+                <p className={`text-sm font-semibold ${policy.status === 'expired' ? 'text-red-700' : 'text-orange-700'}`}>
+                  {policy.status === 'expired' ? t('expiredBanner') : t('expiringBanner', { days: daysLeft ?? 0 })}
+                </p>
+                <p className="text-xs text-gray-600 mt-0.5">{t('renewHint')}</p>
+              </div>
+              {policy.status !== 'cancelled' && (
+                <Button size="sm" onClick={renewPolicy} disabled={renewing} className="shrink-0 gap-1.5">
+                  {renewing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                  {t('renewBtn')}
+                </Button>
+              )}
+            </div>
+          )}
+
           {policy.description && (
             <p className="text-sm text-gray-600 italic">{policy.description}</p>
           )}
@@ -605,6 +643,9 @@ function PolicyDetailModal({
             </div>
           </section>
 
+          {/* Payment schedule (A2) */}
+          <PaymentSchedule policyId={policy.id} />
+
           {/* Related claims */}
           <section>
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -685,6 +726,18 @@ function PolicyDetailModal({
           >
             <ExternalLink size={14} className="mr-2" /> {t('viewClaims')}
           </Link>
+          {policy.status !== 'cancelled' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={renewPolicy}
+              disabled={renewing}
+              className="text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+            >
+              {renewing ? <Loader2 className="animate-spin mr-2" size={14} /> : <RefreshCw size={14} className="mr-2" />}
+              {t('renewBtn')}
+            </Button>
+          )}
           {isActive && (
             <Button
               variant="outline"
@@ -700,6 +753,118 @@ function PolicyDetailModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Payment schedule (A2) ─────────────────────────────────────────────────────
+
+function PaymentSchedule({ policyId }: { policyId: string }) {
+  const t = useTranslations('policies');
+  const toast = useToast();
+  const [items, setItems] = useState<PolicyPayment[]>([]);
+  const [summary, setSummary] = useState<PaymentSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api.get<{ items: PolicyPayment[]; summary: PaymentSummary }>(
+        `/policies/${policyId}/payments`,
+      );
+      setItems(r.data.items);
+      setSummary(r.data.summary);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, [policyId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const pay = async (p: PolicyPayment) => {
+    setPayingId(p.id);
+    try {
+      await api.post(`/policies/${policyId}/payments/${p.id}/pay`);
+      toast.success(t('paySuccess'));
+      await load();
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detail ?? t('payFailed'));
+    } finally { setPayingId(null); }
+  };
+
+  const receipt = async (p: PolicyPayment) => {
+    try {
+      const res = await api.get<Blob>(`/policies/${policyId}/payments/${p.id}/receipt.pdf`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bien-lai-ky${p.installment_no}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { toast.error(t('payFailed')); }
+  };
+
+  if (loading) {
+    return (
+      <section>
+        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <CreditCard size={14} className="text-blue-600" /> {t('paymentSchedule')}
+        </h3>
+        <div className="text-center py-4"><Loader2 className="inline animate-spin text-gray-400" size={16} /></div>
+      </section>
+    );
+  }
+  if (!summary || items.length === 0) return null;
+
+  const freqLabel = summary.frequency === 'yearly' ? t('freqYearly')
+    : summary.frequency === 'quarterly' ? t('freqQuarterly') : t('freqMonthly');
+
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <CreditCard size={14} className="text-blue-600" /> {t('paymentSchedule')}
+        <span className="text-xs font-normal text-gray-400">· {freqLabel}</span>
+      </h3>
+
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <BreakdownCard label={t('paidLabel')} value={`${summary.paid_count}/${summary.total_installments}`} accent="green" />
+        <BreakdownCard label={t('paymentPaidAmount')} value={fmtVND(summary.paid_amount)} accent="blue" />
+        <BreakdownCard label={t('paymentRemaining')} value={fmtVND(summary.remaining_amount)} accent="orange" />
+      </div>
+
+      <div className="border rounded-lg divide-y max-h-56 overflow-y-auto">
+        {items.map((p) => {
+          const due = new Date(p.due_date);
+          const isPaid = p.status === 'paid';
+          return (
+            <div key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <p className="text-gray-800">
+                  {t('installment')} {p.installment_no}/{p.total_installments}
+                  <span className="text-gray-400 font-normal"> · {t('due')} {due.toLocaleDateString()}</span>
+                </p>
+                <p className="text-xs text-gray-500">{fmtVND(p.amount)}</p>
+              </div>
+              {isPaid ? (
+                <button
+                  onClick={() => receipt(p)}
+                  className="shrink-0 inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-lg hover:bg-green-100"
+                >
+                  <Receipt size={12} /> {t('receipt')}
+                </button>
+              ) : (
+                <Button size="sm" onClick={() => pay(p)} disabled={payingId === p.id} className="shrink-0 gap-1 h-7 text-xs">
+                  {payingId === p.id ? <Loader2 size={12} className="animate-spin" /> : <CreditCard size={12} />}
+                  {t('payNow')}
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

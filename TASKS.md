@@ -1277,14 +1277,74 @@ async def log_action(actor: User, action: str, target_type: str, target_id: str,
 
 ---
 
+## Phase C — Hoàn thiện UX (Nhóm A) ✅
+
+> Sau đánh giá tuần 6: 3 lỗ hổng "chưa khép kín" (không có thông báo in-app, payment không lưu vết, policy hết hạn âm thầm) + thiếu dark/mobile. Triển khai trọn Nhóm A.
+
+### TASK-037 `[BE+FE]` Notification Center (chuông + inbox realtime) ✅
+
+**Mô tả:** Thông báo in-app cho mọi sự kiện của user, realtime qua WebSocket per-user (mirror pattern claims WS nhưng theo user_id).
+
+**Done — implementation:**
+- `models/notification.py` — collection `notifications` (user_id, type, title, body, link, read, created_at) + indexes
+- `services/notifications.py` — `_UserWsManager` (in-memory per-user) + `notify()` (persist + push, best-effort không raise)
+- `api/routes/notifications.py` — `GET /notifications`, `GET /notifications/unread-count`, `PATCH /{id}/read`, `PATCH /read-all`, `WS /notifications/ws` (auth cookie JWT)
+- Hook `notify()` vào: `review_claim` (approved/partial/rejected/info_requested), `mark_claim_paid`, `purchase_policy`, `renew_policy`, expiry/expired
+- FE `components/layout/NotificationBell.tsx` — chuông + badge unread + dropdown, WS client auto-reconnect, mark-read on click → deep-link, mark-all-read
+- Đặt trong header (`AppShell`) cạnh Theme + Language; i18n namespace `notifications` (vi/en)
+
+### TASK-038 `[BE+FE]` Lịch đóng phí + biên lai (payment schedule) ✅
+
+**Mô tả:** Nối tiếp payment sim — sinh lịch đóng phí theo `payment_frequency`, cho đóng từng kỳ (mô phỏng) + xuất biên lai PDF.
+
+**Done — implementation:**
+- `models/payment.py` — collection `payments` (installment_no, total, amount, due_date, status, paid_at, method, transaction_ref)
+- `user_policies.py` — `_generate_payment_schedule()` sinh khi mua/gia hạn (kỳ đầu = paid; ppy yearly/quarterly/monthly, cap 60 kỳ); routes `GET /policies/{id}/payments`, `POST /.../payments/{pid}/pay`, `GET /.../payments/{pid}/receipt.pdf`
+- `pdf_generator.generate_payment_receipt()` — biên lai PDF song ngữ, reuse helper contract/invoice
+- FE `PaymentSchedule` trong `PolicyDetailModal` — summary (đã đóng/còn lại) + list kỳ + nút Đóng phí (pending) / tải Biên lai (paid); i18n
+
+### TASK-039 `[BE+FE]` Policy expiry reminder + renew ✅
+
+**Mô tả:** Nhắc gói sắp hết hạn (≤30 ngày) + cho gia hạn nối tiếp.
+
+**Done — implementation:**
+- `UserPolicy` thêm `expiry_reminder_sent`, `renewed_from`
+- Lazy reminder trong `GET /policies` (notify `policy_expiring` ≤30 ngày idempotent, `policy_expired` khi auto-expire) + Celery beat task `check_expiring_policies` (daily) cho cơ chế chủ động
+- `POST /policies/{id}/renew` — tạo UserPolicy mới nối tiếp cùng plan/term, gói cũ active → expired, sinh lịch phí mới, audit `policy_renewed`, notify
+- FE `PolicyDetailModal` — banner cam/đỏ khi sắp/đã hết hạn + nút Gia hạn (banner + footer); i18n
+
+### TASK-040 `[FE]` Dark mode + mobile responsive ✅
+
+**Mô tả:** Bật dark mode (tailwind `darkMode:'class'` đã có) + sidebar drawer cho mobile.
+
+**Done — implementation:**
+- `components/layout/ThemeSwitcher.tsx` — toggle `dark` class, persist localStorage, tôn trọng `prefers-color-scheme`
+- `components/layout/AppShell.tsx` (client) — bọc layout, giữ state `mobileOpen`, header với hamburger (md:hidden) + Bell + Theme + Language, backdrop mobile
+- `Sidebar` nhận props `mobileOpen/onNavigate` → drawer trượt (`fixed ... -translate-x-full` mobile, `md:static` desktop), đóng khi điều hướng
+- `dark:` áp cho app shell (bg/header/main) + NotificationBell dropdown; **per-page dark polish còn lại là follow-up** (chrome + notification đã dark-aware)
+
+---
+
+## Nhóm B — Đề xuất (CHƯA CHỐT thành task)
+
+> Đã thảo luận tuần 6, giá trị cao và hợp project nhưng **chưa quyết làm**. Ghi lại để cân nhắc; khi chốt sẽ nâng thành TASK-04x.
+
+- **B1 — AI explainer cho claim** ⭐: chatbot đọc `ai_decision + fraud_flags + matched_clause` của 1 claim cụ thể → giải thích dễ hiểu "vì sao duyệt/từ chối" + gợi ý bổ sung. Tận dụng chatbot RAG sẵn có.
+- **B2 — So sánh gói side-by-side**: bảng so sánh 3 gói (coverage/premium/loại trừ) của 1 loại trước khi đăng ký. (trùng 1 mục Backlog)
+- **B3 — Semantic search hồ sơ**: search claims/tài liệu bằng ngôn ngữ tự nhiên qua Qdrant (embedding hạ tầng đã có).
+- **B4 — Claim timeline cho user**: timeline trực quan vòng đời claim (submitted → processed → review → info_requested → approved → paid) từ audit log/status history.
+- **B5 — KYC face match**: so khớp ảnh chân dung CCCD (đã crop được qua bbox TASK-031) với selfie khi đăng ký bằng Gemini Vision.
+
+---
+
 ## Backlog
 
-- `[ ]` So sánh gói bảo hiểm side-by-side
+- `[x]` So sánh gói bảo hiểm side-by-side → chuyển thành đề xuất **B2**
 - `[ ]` Lịch sử thiên tai theo tỉnh (timeline chart)
 - `[ ]` Export hồ sơ merged ra DOCX
 - `[ ]` Thêm doc types: Giấy khai sinh, Sổ hộ khẩu
-- `[ ]` Dark mode
-- `[ ]` Mobile responsive chatbot widget
+- `[x]` Dark mode → **TASK-040** ✅
+- `[ ]` Mobile responsive chatbot widget (chatbot page — sidebar/mobile shell đã responsive từ TASK-040)
 
 ---
 

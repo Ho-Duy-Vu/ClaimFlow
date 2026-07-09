@@ -286,3 +286,72 @@ def ingest_policy_to_qdrant(self, policy_id: str):
         logger.info("Ingested policy %s into Qdrant — %d chunks", policy_id, len(points))
 
     return asyncio.run(_run())
+
+
+@celery_app.task(name="check_expiring_policies", bind=True)
+def check_expiring_policies(self):
+    """A3 — quét policy sắp hết hạn (≤30 ngày) hoặc đã hết hạn → tạo notification.
+    Idempotent qua cờ `expiry_reminder_sent`. Chạy định kỳ qua Celery beat
+    (xem beat_schedule bên dưới). Cũng được kiểm tra lazy trong GET /policies."""
+    async def _run():
+        from datetime import datetime, timedelta
+        from motor.motor_asyncio import AsyncIOMotorClient
+        from beanie import init_beanie
+        from app.models.user import User
+        from app.models.document import Document
+        from app.models.claim import Claim
+        from app.models.geo_risk import GeoRisk
+        from app.models.chat_session import ChatSession
+        from app.models.policy import Policy
+        from app.models.audit_log import AuditLog
+        from app.models.user_policy import UserPolicy
+        from app.models.ocr_bundle import OCRBundle
+        from app.models.notification import Notification
+        from app.models.payment import Payment
+        from app.services.notifications import notify
+
+        client = AsyncIOMotorClient(settings.MONGODB_URL)
+        await init_beanie(
+            database=client[settings.MONGODB_DB_NAME],
+            document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy,
+                             AuditLog, UserPolicy, OCRBundle, Notification, Payment],
+        )
+
+        now = datetime.utcnow()
+        # Expired → mark + notify
+        for p in await UserPolicy.find(
+            UserPolicy.status == "active", UserPolicy.end_date < now
+        ).to_list():
+            p.status = "expired"
+            await p.save()
+            await notify(p.user_id, type="policy_expired", title="Gói bảo hiểm đã hết hạn",
+                         body=f"Gói {p.plan_name} ({p.policy_number}) đã hết hiệu lực.", link="/policies")
+
+        # Expiring within 30 days → remind once
+        soon = now + timedelta(days=30)
+        count = 0
+        for p in await UserPolicy.find(
+            UserPolicy.status == "active",
+            UserPolicy.end_date >= now,
+            UserPolicy.end_date <= soon,
+            UserPolicy.expiry_reminder_sent == False,  # noqa: E712
+        ).to_list():
+            days_left = max(0, (p.end_date - now).days)
+            p.expiry_reminder_sent = True
+            await p.save()
+            await notify(p.user_id, type="policy_expiring", title="Gói bảo hiểm sắp hết hạn",
+                         body=f"Gói {p.plan_name} còn {days_left} ngày là hết hạn.", link="/policies")
+            count += 1
+        logger.info("check_expiring_policies: reminded %d expiring policies", count)
+        return count
+
+    return asyncio.run(_run())
+
+
+# Beat schedule — chạy check_expiring_policies mỗi ngày (cần `celery -A app.tasks beat`)
+celery_app.conf.beat_schedule = {
+    "check-expiring-policies-daily": {
+        "task": "check_expiring_policies",
+        "schedule": 24 * 60 * 60,  # 86400s = 1 ngày
+    },
+}

@@ -8,9 +8,14 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.api.deps import get_current_user
 from app.models.audit_log import AuditLog
+from app.models.payment import Payment
 from app.models.policy import Policy
 from app.models.user import User
 from app.models.user_policy import POLICY_PLANS, UserPolicy
+from app.services.notifications import notify
+
+_PERIODS_PER_YEAR = {"yearly": 1, "quarterly": 4, "monthly": 12}
+_MAX_INSTALLMENTS = 60
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -45,6 +50,49 @@ def _serialize(p: UserPolicy) -> dict:
         "terms_accepted": p.terms_accepted,
         "created_at": p.created_at.isoformat(),
     }
+
+
+def _serialize_payment(p: Payment) -> dict:
+    return {
+        "id": str(p.id),
+        "policy_id": p.policy_id,
+        "installment_no": p.installment_no,
+        "total_installments": p.total_installments,
+        "amount": p.amount,
+        "due_date": p.due_date.isoformat(),
+        "status": p.status,
+        "paid_at": p.paid_at.isoformat() if p.paid_at else None,
+        "method": p.method,
+        "transaction_ref": p.transaction_ref,
+    }
+
+
+async def _generate_payment_schedule(policy: UserPolicy) -> None:
+    """Sinh lịch đóng phí khi mua gói. Kỳ đầu đánh dấu đã thanh toán (mô phỏng
+    — user vừa qua bước thanh toán khi mua). Các kỳ sau `pending`."""
+    ppy = _PERIODS_PER_YEAR.get(policy.payment_frequency, 1)
+    total = max(1, min(ppy * policy.term_years, _MAX_INSTALLMENTS))
+    per_amount = round(policy.annual_premium / ppy)
+    interval_days = 365 / ppy
+    docs: list[Payment] = []
+    for i in range(total):
+        due = policy.start_date + timedelta(days=round(i * interval_days))
+        first = i == 0
+        docs.append(Payment(
+            user_id=policy.user_id,
+            policy_id=str(policy.id),
+            policy_number=policy.policy_number,
+            installment_no=i + 1,
+            total_installments=total,
+            amount=per_amount,
+            due_date=due,
+            method=policy.payment_method,
+            status="paid" if first else "pending",
+            paid_at=policy.start_date if first else None,
+            transaction_ref=f"CF-PAY-{uuid.uuid4().hex[:8].upper()}" if first else None,
+        ))
+    if docs:
+        await Payment.insert_many(docs)
 
 
 def _age_from_dob(dob_str: str) -> int | None:
@@ -120,16 +168,42 @@ async def get_policy_terms(category: str) -> dict:
 async def list_policies(
     current_user: User = Depends(get_current_user),
 ) -> list[dict]:
-    # Auto-expire policies past end_date
+    # Auto-expire policies past end_date + notify (once)
     now = datetime.utcnow()
-    active = await UserPolicy.find(
+    expired = await UserPolicy.find(
         UserPolicy.user_id == str(current_user.id),
         UserPolicy.status == "active",
         UserPolicy.end_date < now,
     ).to_list()
-    for p in active:
+    for p in expired:
         p.status = "expired"
         await p.save()
+        await notify(
+            str(current_user.id), type="policy_expired",
+            title="Gói bảo hiểm đã hết hạn",
+            body=f"Gói {p.plan_name} ({p.policy_number}) đã hết hiệu lực. Gia hạn để tiếp tục được bảo vệ.",
+            link="/policies",
+        )
+
+    # Reminder for policies expiring within 30 days (idempotent via expiry_reminder_sent)
+    soon = now + timedelta(days=30)
+    expiring = await UserPolicy.find(
+        UserPolicy.user_id == str(current_user.id),
+        UserPolicy.status == "active",
+        UserPolicy.end_date >= now,
+        UserPolicy.end_date <= soon,
+        UserPolicy.expiry_reminder_sent == False,  # noqa: E712
+    ).to_list()
+    for p in expiring:
+        days_left = max(0, (p.end_date - now).days)
+        p.expiry_reminder_sent = True
+        await p.save()
+        await notify(
+            str(current_user.id), type="policy_expiring",
+            title="Gói bảo hiểm sắp hết hạn",
+            body=f"Gói {p.plan_name} còn {days_left} ngày là hết hạn. Gia hạn sớm để không gián đoạn.",
+            link="/policies",
+        )
 
     policies = await UserPolicy.find(
         UserPolicy.user_id == str(current_user.id)
@@ -261,6 +335,21 @@ async def purchase_policy(
     except Exception as exc:
         logger.warning("Audit log failed policy_purchased=%s: %s", policy.id, exc)
 
+    # Generate premium payment schedule (first installment paid at purchase)
+    try:
+        await _generate_payment_schedule(policy)
+    except Exception as exc:
+        logger.warning("Payment schedule gen failed policy=%s: %s", policy.id, exc)
+
+    # In-app notification
+    await notify(
+        str(current_user.id),
+        type="policy_purchased",
+        title="Mua bảo hiểm thành công",
+        body=f"Gói {plan['plan_name']} đã được kích hoạt. Số HĐ: {policy.policy_number}.",
+        link="/policies",
+    )
+
     return _serialize(policy)
 
 
@@ -304,6 +393,159 @@ async def cancel_policy(
         raise HTTPException(409, "Gói bảo hiểm không còn hoạt động")
     policy.status = "cancelled"
     await policy.save()
+
+
+@router.post("/{policy_id}/renew", status_code=201)
+async def renew_policy(
+    policy_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Gia hạn gói — tạo UserPolicy mới nối tiếp, cùng plan/term. Gói cũ (nếu còn
+    active) chuyển 'expired' vì đã được thay thế. Sinh lịch đóng phí mới."""
+    old = await UserPolicy.get(policy_id)
+    if not old or old.user_id != str(current_user.id):
+        raise HTTPException(404, "Không tìm thấy gói bảo hiểm")
+    if old.status == "cancelled":
+        raise HTTPException(409, "Gói đã hủy không thể gia hạn")
+
+    now = datetime.utcnow()
+    end_date = now + timedelta(days=365 * old.term_years)
+    new = UserPolicy(
+        user_id=old.user_id,
+        policy_number=f"CF-{old.policy_type[:3].upper()}-{uuid.uuid4().hex[:8].upper()}",
+        policy_type=old.policy_type,
+        plan_name=old.plan_name,
+        description=old.description,
+        insurer=old.insurer,
+        coverage_amount=old.coverage_amount,
+        annual_premium=old.annual_premium,
+        base_premium=old.base_premium,
+        age_multiplier=old.age_multiplier,
+        start_date=now,
+        end_date=end_date,
+        term_years=old.term_years,
+        insured_person=old.insured_person,
+        beneficiaries=old.beneficiaries,
+        subject_details=old.subject_details,
+        health_declaration=old.health_declaration,
+        payment_frequency=old.payment_frequency,
+        payment_method=old.payment_method,
+        terms_accepted=old.terms_accepted,
+        renewed_from=policy_id,
+    )
+    await new.insert()
+
+    if old.status == "active":
+        old.status = "expired"
+        await old.save()
+
+    try:
+        await _generate_payment_schedule(new)
+    except Exception as exc:
+        logger.warning("Payment schedule gen failed on renew policy=%s: %s", new.id, exc)
+
+    try:
+        await AuditLog(
+            actor_id=str(current_user.id),
+            actor_email=current_user.email,
+            action="policy_renewed",
+            target_type="user_policy",
+            target_id=str(new.id),
+            details={"renewed_from": policy_id, "policy_type": old.policy_type, "plan_name": old.plan_name},
+            ip_address=request.client.host if request.client else None,
+        ).insert()
+    except Exception as exc:
+        logger.warning("Audit log failed policy_renewed=%s: %s", new.id, exc)
+
+    await notify(
+        str(current_user.id), type="policy_purchased",
+        title="Gia hạn bảo hiểm thành công",
+        body=f"Gói {new.plan_name} đã được gia hạn. Số HĐ mới: {new.policy_number}.",
+        link="/policies",
+    )
+    return _serialize(new)
+
+
+@router.get("/{policy_id}/payments")
+async def list_payments(
+    policy_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Lịch đóng phí của 1 gói + tóm tắt (đã đóng / còn lại / kỳ tới hạn)."""
+    policy = await UserPolicy.get(policy_id)
+    if not policy or policy.user_id != str(current_user.id):
+        raise HTTPException(404, "Không tìm thấy gói bảo hiểm")
+
+    payments = await Payment.find(
+        Payment.policy_id == policy_id
+    ).sort(+Payment.installment_no).to_list()
+
+    paid = [p for p in payments if p.status == "paid"]
+    pending = [p for p in payments if p.status == "pending"]
+    next_due = min(pending, key=lambda p: p.due_date).due_date.isoformat() if pending else None
+
+    return {
+        "items": [_serialize_payment(p) for p in payments],
+        "summary": {
+            "total_installments": len(payments),
+            "paid_count": len(paid),
+            "pending_count": len(pending),
+            "paid_amount": sum(p.amount for p in paid),
+            "remaining_amount": sum(p.amount for p in pending),
+            "next_due_date": next_due,
+            "frequency": policy.payment_frequency,
+        },
+    }
+
+
+@router.post("/{policy_id}/payments/{payment_id}/pay")
+async def pay_installment(
+    policy_id: str,
+    payment_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Thanh toán 1 kỳ (mô phỏng — local, không cổng thật)."""
+    payment = await Payment.get(payment_id)
+    if not payment or payment.policy_id != policy_id or payment.user_id != str(current_user.id):
+        raise HTTPException(404, "Không tìm thấy kỳ đóng phí")
+    if payment.status == "paid":
+        raise HTTPException(409, "Kỳ này đã được thanh toán")
+
+    payment.status = "paid"
+    payment.paid_at = datetime.utcnow()
+    payment.transaction_ref = f"CF-PAY-{uuid.uuid4().hex[:8].upper()}"
+    await payment.save()
+    return _serialize_payment(payment)
+
+
+@router.get("/{policy_id}/payments/{payment_id}/receipt.pdf")
+async def download_payment_receipt(
+    policy_id: str,
+    payment_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Biên lai PDF cho 1 kỳ đã thanh toán."""
+    from app.services.pdf_generator import generate_payment_receipt
+
+    payment = await Payment.get(payment_id)
+    if not payment or payment.policy_id != policy_id or payment.user_id != str(current_user.id):
+        raise HTTPException(404, "Không tìm thấy kỳ đóng phí")
+    if payment.status != "paid":
+        raise HTTPException(409, "Chỉ kỳ đã thanh toán mới có biên lai")
+
+    policy = await UserPolicy.get(policy_id)
+    pdf_bytes = generate_payment_receipt(
+        payment=_serialize_payment(payment),
+        policy=_serialize(policy) if policy else None,
+        user={"email": current_user.email, "full_name": current_user.full_name},
+    )
+    filename = f"bien-lai-{payment.policy_number}-ky{payment.installment_no}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.get("/{policy_id}/contract.pdf")

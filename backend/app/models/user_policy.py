@@ -177,6 +177,10 @@ class UserPolicy(Document):
     payment_method: Literal["bank_transfer", "cash", "card"] = "bank_transfer"
     terms_accepted: bool = False
 
+    # A3 — expiry reminder idempotency + renewal chaining
+    expiry_reminder_sent: bool = False
+    renewed_from: str | None = None          # policy_id gốc nếu đây là gói gia hạn
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:

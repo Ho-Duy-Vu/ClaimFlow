@@ -455,3 +455,70 @@ def generate_claim_invoice(claim: dict, policy: dict | None, user: dict) -> byte
 
     doc.build(story)
     return buf.getvalue()
+
+
+def generate_payment_receipt(payment: dict, policy: dict | None, user: dict) -> bytes:
+    """Build PDF bytes for a paid premium installment receipt (biên lai đóng phí)."""
+    styles = _styles()
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        rightMargin=2 * cm, leftMargin=2 * cm,
+        topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+        title=f"Receipt {payment.get('id', '')}",
+        author="ClaimFlow Insurance",
+    )
+    story: list = []
+
+    _header_band(story, vi="BIÊN LAI ĐÓNG PHÍ BẢO HIỂM", en="PREMIUM PAYMENT RECEIPT", styles=styles)
+
+    badge = Table(
+        [[Paragraph('<font color="white"><b>ĐÃ THANH TOÁN / PAID</b></font>', styles["body_bold"])]],
+        colWidths=[16 * cm],
+    )
+    badge.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#16a34a")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(badge)
+    story.append(Spacer(1, 0.3 * cm))
+
+    story.append(_kv_table([
+        ("Mã biên lai / Receipt No.",  f"RC-{str(payment.get('id', ''))[-12:].upper()}"),
+        ("Mã giao dịch / Trans. ref",  str(payment.get("transaction_ref") or "—")),
+        ("Ngày thanh toán / Paid at",  _fmt_date(payment.get("paid_at"))),
+        ("Phương thức / Method",       str(payment.get("method") or "—")),
+    ], styles))
+
+    _section(story, "1. Người đóng phí / Payer", styles)
+    story.append(_kv_table([
+        ("Họ tên / Full name", user.get("full_name") or user.get("email", "")),
+        ("Email",              user.get("email", "—")),
+    ], styles))
+
+    if policy:
+        type_vi, type_en = POLICY_TYPE_LABELS.get(policy.get("policy_type", ""), ("", ""))
+        _section(story, "2. Hợp đồng / Policy", styles)
+        story.append(_kv_table([
+            ("Số HĐ / Policy No.",   str(policy.get("policy_number", ""))),
+            ("Tên gói / Plan",       str(policy.get("plan_name", ""))),
+            ("Loại / Type",          f"{type_vi} / {type_en}" if type_vi else str(policy.get("policy_type", ""))),
+        ], styles))
+
+    _section(story, "3. Kỳ đóng phí / Installment", styles)
+    story.append(_kv_table([
+        ("Kỳ / Installment",   f"{payment.get('installment_no', '?')} / {payment.get('total_installments', '?')}"),
+        ("Đến hạn / Due date", _fmt_date(payment.get("due_date"))),
+        ("Số tiền / Amount",   f"<b>{_fmt_vnd(payment.get('amount'))}</b>"),
+    ], styles))
+
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph(
+        "Biên lai này được phát hành điện tử (môi trường demo) và xác nhận kỳ đóng phí đã hoàn tất.",
+        styles["footer"],
+    ))
+
+    doc.build(story)
+    return buf.getvalue()

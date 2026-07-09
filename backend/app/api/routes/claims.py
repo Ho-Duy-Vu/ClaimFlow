@@ -12,6 +12,7 @@ from app.models.claim import Claim
 from app.models.document import Document, DocumentEmbed
 from app.models.user import User
 from app.services.email import send_claim_review_email
+from app.services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -663,6 +664,20 @@ async def review_claim(
             reduction_reason=body.reduction_reason if is_partial else None,
         )
 
+    # ── In-app notification ────────────────────────────────────────────────────
+    _notif = {
+        "approved": ("claim_reviewed", "Yêu cầu bồi thường được duyệt",
+                     f"Claim {claim.claim_type} của bạn đã được duyệt chi trả."),
+        "partial_approved": ("claim_reviewed", "Yêu cầu được duyệt một phần",
+                             "Claim của bạn được duyệt một phần — xem chi tiết mức chi trả."),
+        "rejected": ("claim_reviewed", "Yêu cầu bồi thường bị từ chối",
+                     "Claim của bạn đã bị từ chối — xem lý do trong chi tiết."),
+        "info_requested": ("claim_info_requested", "Cần bổ sung tài liệu",
+                           "Reviewer yêu cầu bổ sung thông tin cho claim của bạn."),
+    }
+    _type, _title, _body = _notif.get(decision, ("claim_reviewed", "Cập nhật yêu cầu bồi thường", ""))
+    await notify(claim.user_id, type=_type, title=_title, body=_body, link="/claims")
+
     logger.info(
         "Claim %s reviewed by %s → %s (override=%s)",
         claim_id, current_user.email, decision, is_override,
@@ -901,6 +916,14 @@ async def mark_claim_paid(
         "transaction_ref": body.transaction_ref,
         "marked_at": now.isoformat(),
     })
+
+    await notify(
+        claim.user_id,
+        type="claim_paid",
+        title="Đã chi trả bồi thường",
+        body=f"Claim {claim.claim_type} đã được chuyển khoản (mã GD: {body.transaction_ref.strip()}).",
+        link="/claims",
+    )
 
     return {
         "ok": True,

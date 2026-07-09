@@ -12,6 +12,8 @@ users         ── claims (ref)
 users         ── documents (ref)
 users         ── chat_sessions (ref)
 users         ── user_policies (ref)
+users         ── notifications (ref)
+user_policies ── payments (ref, 1 policy → N kỳ đóng phí)
 documents     ── claims.documents (embedded ref)
 policies      ── Qdrant vectors (ingested separately)
 geo_risks     ── standalone (province static + dynamic data)
@@ -416,6 +418,61 @@ async def change_user_role(admin_id: str, target_user_id: str, new_role: str):
         details={"old_role": old_role, "new_role": new_role}
     ).insert()
 ```
+
+---
+
+## Collection: `notifications`
+
+Thông báo in-app (realtime qua WebSocket per-user). Persist để user offline vẫn thấy khi mở chuông.
+
+```python
+class Notification(Document):
+    user_id: str
+    type: Literal["claim_reviewed", "claim_info_requested", "claim_paid",
+                  "policy_purchased", "policy_expiring", "policy_expired",
+                  "payment_due", "system"] = "system"
+    title: str
+    body: str = ""
+    link: str | None = None          # deep-link tương đối, vd "/claims"
+    read: bool = False
+    created_at: datetime
+
+    class Settings:
+        name = "notifications"
+        indexes = [ (user_id, read), (user_id, -created_at) ]
+```
+
+- Tạo qua `services/notifications.notify(user_id, type, title, body, link)` — persist + push best-effort.
+- WS `/notifications/ws` (auth cookie JWT) đẩy `{event:"notification", ...}` tới các socket của user.
+
+---
+
+## Collection: `payments`
+
+Kỳ đóng phí (installment) của một `user_policy`. Sinh tự động khi mua/gia hạn theo `payment_frequency`. Local/demo — "thanh toán" mô phỏng.
+
+```python
+class Payment(Document):
+    user_id: str
+    policy_id: str
+    policy_number: str
+    installment_no: int              # 1-based
+    total_installments: int
+    amount: float
+    due_date: datetime
+    status: Literal["pending", "paid"] = "pending"
+    paid_at: datetime | None = None
+    method: str = "bank_transfer"
+    transaction_ref: str | None = None
+    created_at: datetime
+
+    class Settings:
+        name = "payments"
+        indexes = [ (user_id), (policy_id, installment_no), (status, due_date) ]
+```
+
+- Kỳ đầu (installment_no=1) đánh dấu `paid` ngay khi mua (đã qua bước thanh toán). Số kỳ = periods_per_year × term_years (cap 60).
+- Biên lai PDF: `GET /policies/{id}/payments/{pid}/receipt.pdf`.
 
 ---
 

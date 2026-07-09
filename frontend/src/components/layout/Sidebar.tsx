@@ -28,7 +28,7 @@ interface NavLink {
   allowed: Role[];
 }
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen = false, onNavigate }: { mobileOpen?: boolean; onNavigate?: () => void } = {}) {
   const t = useTranslations('nav');
   const tAuth = useTranslations('auth');
   const locale = useLocale();
@@ -92,7 +92,12 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-60 bg-gray-900 text-white min-h-screen flex flex-col shrink-0">
+    <aside
+      className={`w-60 bg-gray-900 text-white flex flex-col shrink-0 z-40
+        fixed inset-y-0 left-0 h-screen transform transition-transform duration-200
+        md:static md:h-auto md:min-h-screen md:translate-x-0
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+    >
       <div className="p-5 border-b border-gray-700">
         <h1 className="text-lg font-bold text-blue-400 tracking-tight">ClaimFlow</h1>
         <p className="text-xs text-gray-400 mt-0.5">AI Insurance Platform</p>
@@ -112,6 +117,7 @@ export function Sidebar() {
               <Link
                 key={href}
                 href={href}
+                onClick={onNavigate}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-blue-600 text-white'

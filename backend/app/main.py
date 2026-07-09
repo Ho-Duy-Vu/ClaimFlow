@@ -16,6 +16,7 @@ from app.api.routes import (
     claims,
     documents,
     geo_risk,
+    notifications,
     reviewer,
     user_policies,
 )
@@ -73,3 +74,4 @@ app.include_router(user_policies.router)
 app.include_router(analytics.router)
 app.include_router(reviewer.router)
 app.include_router(admin.router)
+app.include_router(notifications.router)

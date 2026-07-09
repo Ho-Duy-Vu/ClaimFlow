@@ -37,16 +37,20 @@ Infra:     Docker Compose
 ```
 backend/app/
 ├── api/routes/      auth · documents · geo_risk · chatbot · claims · user_policies
-│                   analytics · reviewer · admin
+│                   analytics · reviewer · admin · notifications
 ├── core/            config · security (JWT+bcrypt) · database (MongoDB) · middleware · rate_limit
 ├── models/          user · document · claim · geo_risk · chat_session · policy · audit_log · user_policy
+│                   ocr_bundle · notification · payment
 ├── schemas/         auth · document
 ├── services/
-│   ├── ai/          agent · ocr · merger · chatbot
+│   ├── ai/          agent · ocr · merger · chatbot · rag
 │   ├── geo/         risk_engine (incl. province_data, _normalize_vn, aliases)
-│   ├── province_mapper.py
+│   ├── notifications.py   (per-user WS manager + notify())
+│   ├── pdf_generator.py   (contract · invoice · payment receipt)
+│   ├── email.py · province_mapper.py
 │   └── storage.py
-└── tasks/           document_processor (Celery: process_document, process_claim, ingest_policy_to_qdrant)
+└── tasks/           document_processor (Celery: process_document, process_claim,
+                    ingest_policy_to_qdrant, check_expiring_policies + beat_schedule)
 
 frontend/src/
 ├── app/[locale]/
@@ -182,8 +186,13 @@ claims          → status, claim_type, ai_decision, fraud_score, reviewer_note,
 geo_risks       → province, risk_scores, disaster_types, recommendations (63 tỉnh seeded)
 chat_sessions   → user_id, messages[] (max 50), context
 policies        → RAG source (ingested vào Qdrant, chunk_count, last_ingested)
-user_policies   → gói bảo hiểm user đã mua (policy_type ∈ 6 loại mới, status active|expired|cancelled)
-audit_logs      → mọi action admin: role_change, user_deactivate/activate, policy_upload/delete, claim_override
+user_policies   → gói bảo hiểm user đã mua (policy_type ∈ 6 loại mới, status active|expired|cancelled,
+                  + expiry_reminder_sent, renewed_from)
+audit_logs      → mọi action admin: role_change, user_deactivate/activate, policy_upload/delete, claim_override,
+                  policy_purchased, policy_renewed, payment_marked_paid
+ocr_bundles     → holistic multi-doc OCR (bundle_hash, consolidated_profile, inconsistencies)
+notifications   → in-app notify (user_id, type, title, body, link, read) — realtime qua WS per-user
+payments        → kỳ đóng phí của user_policy (installment_no, amount, due_date, status paid|pending, transaction_ref)
 ```
 
 **Lưu ý migration:** Type cũ `medical/dental/hospitalization/medication` đã được migrate sang `health` (xem `claim_type` + `policy_type`). Nếu thấy DB còn record cũ, chạy lại `db.user_policies.updateMany({policy_type: 'hospitalization'}, {$set: {policy_type: 'health'}})`.
@@ -216,8 +225,20 @@ PATCH /claims/{id}/review        Reviewer override
 # User Policy (insurance registration & management)
 GET   /policies/plans            Danh sách 6 loại × 3 gói (public, không cần auth)
 GET   /policies                  Gói của user hiện tại (auto-expire end_date < now)
-POST  /policies/purchase         { policy_type, plan_index } → tạo UserPolicy active
+POST  /policies/purchase         { policy_type, plan_index, ... } → UserPolicy active + sinh lịch phí + notify
+POST  /policies/quote            Báo giá realtime (age multiplier)
 DELETE/policies/{id}             Cancel gói
+POST  /policies/{id}/renew       Gia hạn → UserPolicy mới nối tiếp, gói cũ → expired
+GET   /policies/{id}/payments    Lịch đóng phí + summary (đã đóng/còn lại/kỳ tới)
+POST  /policies/{id}/payments/{pid}/pay        Đóng 1 kỳ (mô phỏng)
+GET   /policies/{id}/payments/{pid}/receipt.pdf Biên lai PDF
+GET   /policies/{id}/contract.pdf              Hợp đồng PDF
+
+# Notifications (in-app, realtime)
+GET   /notifications             { items[], unread } — ?unread_only ?limit
+GET   /notifications/unread-count
+PATCH /notifications/{id}/read · PATCH /notifications/read-all
+WS    /notifications/ws          Realtime per-user (auth cookie JWT)
 
 GET   /analytics/summary         Total/approved/rejected/manual_review/processing,
                                  approval_rate, avg_processing_minutes, total_approved_amount

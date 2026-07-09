@@ -444,6 +444,62 @@ Hủy gói bảo hiểm. Yêu cầu `X-CSRF-Token` header.
 // Error 404: policy không tồn tại hoặc không phải của user
 ```
 
+### POST `/policies/{id}/renew`
+Gia hạn — tạo `UserPolicy` mới nối tiếp cùng plan/term; gói cũ (nếu active) → `expired`. Sinh lịch phí mới + notify. Trả policy mới (201). CSRF required.
+
+### GET `/policies/{id}/payments`
+Lịch đóng phí + tóm tắt.
+```json
+{
+  "items": [{ "id": "...", "installment_no": 1, "total_installments": 12,
+              "amount": 700000, "due_date": "2026-07-09T...", "status": "paid",
+              "paid_at": "...", "transaction_ref": "CF-PAY-A1B2C3D4" }],
+  "summary": { "total_installments": 12, "paid_count": 1, "pending_count": 11,
+               "paid_amount": 700000, "remaining_amount": 7700000,
+               "next_due_date": "...", "frequency": "monthly" }
+}
+```
+
+### POST `/policies/{id}/payments/{payment_id}/pay`
+Đóng 1 kỳ (mô phỏng — local). Trả payment đã cập nhật `status:"paid"`. CSRF required. 409 nếu đã đóng.
+
+### GET `/policies/{id}/payments/{payment_id}/receipt.pdf`
+Biên lai PDF (chỉ kỳ đã `paid`). `Content-Type: application/pdf`.
+
+### GET `/policies/{id}/contract.pdf`
+Hợp đồng PDF (cache MinIO). `Content-Type: application/pdf`.
+
+---
+
+## Notifications
+
+Thông báo in-app realtime. Tất cả cần auth (cookie JWT).
+
+### GET `/notifications`
+Query: `unread_only` (bool), `limit` (1-100, default 30).
+```json
+{
+  "items": [{ "id": "...", "type": "claim_reviewed", "title": "Yêu cầu bồi thường được duyệt",
+              "body": "...", "link": "/claims", "read": false, "created_at": "..." }],
+  "unread": 3
+}
+```
+
+### GET `/notifications/unread-count`
+```json
+{ "unread": 3 }
+```
+
+### PATCH `/notifications/{id}/read` · PATCH `/notifications/read-all`
+Đánh dấu đã đọc (1 hoặc tất cả). CSRF required. → `{ "ok": true }`
+
+### `WS /notifications/ws`
+Kênh realtime per-user (auth cookie). Server push:
+```json
+{ "event": "notification", "id": "...", "type": "policy_expiring",
+  "title": "...", "body": "...", "link": "/policies", "created_at": "..." }
+```
+
 ---
 
 ## Chatbot

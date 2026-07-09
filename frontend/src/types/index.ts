@@ -60,6 +60,39 @@ export interface UserPolicy {
   end_date: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface PolicyPayment {
+  id: string;
+  policy_id: string;
+  installment_no: number;
+  total_installments: number;
+  amount: number;
+  due_date: string;
+  status: 'pending' | 'paid';
+  paid_at: string | null;
+  method: string;
+  transaction_ref: string | null;
+}
+
+export interface PaymentSummary {
+  total_installments: number;
+  paid_count: number;
+  pending_count: number;
+  paid_amount: number;
+  remaining_amount: number;
+  next_due_date: string | null;
+  frequency: 'monthly' | 'quarterly' | 'yearly';
+}
+
 export interface ConsolidatedField {
   value: string;
   confidence: number;

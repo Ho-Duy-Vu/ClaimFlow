@@ -25,6 +25,9 @@ Dự án là một sản phẩm insurtech cá nhân, tích hợp các khái ni�
 - **🏠 Dashboard** — welcome banner theo role, snapshot cards, high-risk alert, recent claims, quick actions, my policies grid.
 - **🔍 Claim Processing (AI Agent)** — LangGraph 4 node `extract_data → check_coverage → fraud_detection → make_decision`, RAG trên Qdrant, real-time qua WebSocket, human review.
 - **📊 Analytics Dashboard (`/analytics`)** — 4 metric card, daily bar chart, region pie (SVG thuần), disaster/claim type breakdown, scope tự động theo role.
+- **🔔 Notification Center** — thông báo in-app realtime (WebSocket per-user): claim được duyệt/chi trả, cần bổ sung, mua/gia hạn/sắp hết hạn gói. Chuông + badge chưa đọc trên header.
+- **💳 Payment & Renewal** — lịch đóng phí theo kỳ (tháng/quý/năm) + đóng phí mô phỏng (QR ngân hàng giả lập) + biên lai PDF; nhắc gói sắp hết hạn (≤30 ngày) + gia hạn 1 chạm.
+- **🌗 Dark mode & Mobile** — chuyển sáng/tối (nhớ lựa chọn), sidebar dạng drawer + header responsive cho màn hình nhỏ.
 - **🌐 Bilingual UI (EN / VI)** — chuyển ngôn ngữ tức thì, URL-based locale `/vi` · `/en`, powered by next-intl.
 
 ## Loại bảo hiểm
@@ -143,6 +146,22 @@ It is a personal insurtech product that puts real-world system-design concepts i
 - Region pie chart (pure SVG) — North / Central / South / unknown
 - Top disaster types and claim-type breakdowns
 - Automatic backend scoping: admins and reviewers see everything; regular users see only their own claims
+
+### 🔔 Notification Center
+- Real-time in-app notifications over a **per-user WebSocket** channel (`/notifications/ws`)
+- Fires on claim reviewed / paid / info-requested, policy purchased / renewed / expiring / expired
+- Header bell with an unread badge, a dropdown inbox, mark-as-read and mark-all-read
+- Every notification is persisted, so it's there even if the user was offline
+
+### 💳 Payments & Renewal
+- Premium **payment schedule** generated on purchase from the chosen frequency (monthly / quarterly / yearly)
+- Pay each installment (simulated — local demo, with a mock bank QR) and download a **PDF receipt**
+- Policy **expiry reminders** (≤ 30 days, idempotent) via both a lazy check and a daily Celery beat job
+- One-click **renewal** that chains a new policy from the current one and regenerates the schedule
+
+### 🌗 Dark Mode & Mobile
+- Light/dark theme toggle, persisted to `localStorage` and honoring `prefers-color-scheme`
+- Responsive app shell: the sidebar becomes a slide-in drawer with a hamburger on small screens
 
 ### 🌐 Bilingual UI (EN / VI)
 - The entire interface is available in two languages: Vietnamese (default) and English
