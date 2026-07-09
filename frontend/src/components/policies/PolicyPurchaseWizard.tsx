@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   AlertTriangle, Check, CheckCircle, ChevronLeft, ChevronRight,
-  Info, Loader2, Plus, ShieldCheck, Sparkles, Trash2, X,
+  CreditCard, Info, Loader2, Plus, ShieldCheck, Sparkles, Trash2, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { PolicyTermsModal } from '@/components/policies/PolicyTermsModal';
+import { PaymentModal } from '@/components/policies/PaymentModal';
 import api from '@/lib/api';
 import { PROVINCES } from '@/lib/provinces';
 import type { BundleDoc, ConsolidatedField, UserPolicy } from '@/types';
@@ -252,6 +253,10 @@ export function PolicyPurchaseWizard({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
+  // Payment step (simulated — local demo, no real gateway)
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentRef, setPaymentRef] = useState('');
+
   // Quote (premium preview)
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -358,10 +363,32 @@ export function PolicyPurchaseWizard({
   };
   const goBack = () => { setError(''); setStep(s => (s - 1) as 1 | 2 | 3 | 4); };
 
-  const handleSubmit = async () => {
+  // Premium due now, derived from payment frequency (yearly = full, quarterly = /4, monthly = /12)
+  const annualPremium = quote?.annual_premium ?? currentPlanPremium();
+  const amountDue = Math.round(
+    paymentFreq === 'yearly' ? annualPremium
+    : paymentFreq === 'quarterly' ? annualPremium / 4
+    : annualPremium / 12
+  );
+
+  function currentPlanPremium(): number {
+    return plans[selectedType]?.[selectedPlanIdx]?.annual_premium ?? 0;
+  }
+
+  // Step 4 "pay" button: validate terms, mint a transfer reference, open payment modal.
+  const openPayment = () => {
     setError('');
     const v = validate4();
     if (v) { setError(v); return; }
+    const ref = `CF${selectedType.slice(0, 3).toUpperCase()}${Date.now().toString().slice(-6)}`;
+    setPaymentRef(ref);
+    setShowPayment(true);
+  };
+
+  const handleSubmit = async () => {
+    setError('');
+    const v = validate4();
+    if (v) { setError(v); setShowPayment(false); return; }
 
     setSubmitting(true);
     try {
@@ -379,6 +406,7 @@ export function PolicyPurchaseWizard({
         terms_accepted: termsAccepted,
       };
       await api.post('/policies/purchase', payload);
+      setShowPayment(false);
       setSuccess(tw('purchaseSuccess'));
       toast.success(tw('purchaseSuccess'));
       setTimeout(() => onSuccess(), 1000);
@@ -386,6 +414,7 @@ export function PolicyPurchaseWizard({
       const msg = extractErrorMessage(err, tw('purchaseFailed'));
       setError(msg);
       toast.error(msg);
+      setShowPayment(false);   // surface the error on the review step
     } finally {
       setSubmitting(false);
     }
@@ -833,9 +862,9 @@ export function PolicyPurchaseWizard({
               {tw('next')} <ChevronRight size={13} />
             </Button>
           ) : (
-            <Button size="sm" onClick={handleSubmit} disabled={submitting || !!success} className="gap-1">
+            <Button size="sm" onClick={openPayment} disabled={submitting || !!success} className="gap-1">
               {submitting && <Loader2 size={13} className="animate-spin" />}
-              <ShieldCheck size={13} /> {tw('purchase')}
+              <CreditCard size={13} /> {tw('proceedToPayment')}
             </Button>
           )}
         </div>
@@ -848,6 +877,20 @@ export function PolicyPurchaseWizard({
 
         {showTerms && (
           <PolicyTermsModal category={selectedType} onClose={() => setShowTerms(false)} zIndexClass="z-[60]" />
+        )}
+
+        {showPayment && (
+          <PaymentModal
+            method={paymentMethod}
+            frequency={paymentFreq}
+            amountDue={amountDue}
+            annualPremium={annualPremium}
+            reference={paymentRef}
+            payerName={insured.name}
+            submitting={submitting}
+            onCancel={() => { if (!submitting) setShowPayment(false); }}
+            onConfirm={handleSubmit}
+          />
         )}
       </div>
     </div>
