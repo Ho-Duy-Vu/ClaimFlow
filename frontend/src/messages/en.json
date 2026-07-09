@@ -31,6 +31,20 @@
     "hoursAgo": "{n}h ago",
     "daysAgo": "{n}d ago"
   },
+  "fraudFlags": {
+    "low_description_quality": "Incident description too vague",
+    "unreasonable_claim_amount": "Unreasonable claim amount",
+    "missing_event_date": "Missing incident date",
+    "vague_medical_diagnosis": "Vague medical diagnosis",
+    "high_claim_amount": "Unusually high claim amount",
+    "amount_exceeds_coverage": "Exceeds coverage limit",
+    "duplicate_claim": "Possible duplicate claim",
+    "missing_documents": "Missing documents",
+    "insufficient_evidence": "Insufficient evidence",
+    "date_inconsistency": "Date inconsistency",
+    "province_mismatch": "Location doesn't match records",
+    "provider_not_verified": "Provider not verified"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "documents": "Documents",

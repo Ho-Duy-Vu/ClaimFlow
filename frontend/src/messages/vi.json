@@ -31,6 +31,20 @@
     "hoursAgo": "{n} giờ trước",
     "daysAgo": "{n} ngày trước"
   },
+  "fraudFlags": {
+    "low_description_quality": "Mô tả sự cố quá sơ sài",
+    "unreasonable_claim_amount": "Số tiền yêu cầu bất hợp lý",
+    "missing_event_date": "Thiếu ngày xảy ra sự cố",
+    "vague_medical_diagnosis": "Chẩn đoán y tế mơ hồ",
+    "high_claim_amount": "Số tiền yêu cầu cao bất thường",
+    "amount_exceeds_coverage": "Vượt hạn mức bảo hiểm",
+    "duplicate_claim": "Nghi trùng lặp yêu cầu",
+    "missing_documents": "Thiếu tài liệu/chứng từ",
+    "insufficient_evidence": "Chứng cứ chưa đầy đủ",
+    "date_inconsistency": "Ngày tháng không nhất quán",
+    "province_mismatch": "Địa điểm không khớp hồ sơ",
+    "provider_not_verified": "Cơ sở/nhà cung cấp chưa xác thực"
+  },
   "nav": {
     "dashboard": "Tổng quan",
     "documents": "Tài liệu",

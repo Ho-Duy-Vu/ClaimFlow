@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import api from '@/lib/api';
+import { fraudFlagLabel } from '@/lib/fraudFlags';
 import { PROVINCES } from '@/lib/provinces';
 import type { User } from '@/types';
 
@@ -349,6 +350,7 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
   const t = useTranslations('reviewer');
   const tClaims = useTranslations('claims');
   const tCommon = useTranslations('common');
+  const tFlags = useTranslations('fraudFlags');
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -673,7 +675,7 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
           )}
           {claim.ai_fraud_flags.length > 0 && (
             <ul className="space-y-0.5 text-xs text-red-700">
-              {claim.ai_fraud_flags.map((f, i) => (<li key={i}>• {f}</li>))}
+              {claim.ai_fraud_flags.map((f, i) => (<li key={i}>• {fraudFlagLabel(f, tFlags)}</li>))}
             </ul>
           )}
           {claim.ai_reasoning && (

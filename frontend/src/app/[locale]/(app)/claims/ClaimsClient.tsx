@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import api from '@/lib/api';
+import { fraudFlagLabel } from '@/lib/fraudFlags';
 import { ClaimSubmitWizard } from '@/components/claims/ClaimSubmitWizard';
 import type { Claim, DocumentRecord, UserPolicy } from '@/types';
 
@@ -78,6 +79,7 @@ function DetailModal({
 }) {
   const t = useTranslations('claims');
   const tc = useTranslations('common');
+  const tFlags = useTranslations('fraudFlags');
   const locale = useLocale();
   const toast = useToast();
   const [explanation, setExplanation] = useState('');
@@ -446,7 +448,7 @@ function DetailModal({
                       {merged.ai_fraud_flags.map((flag, i) => (
                         <li key={i} className="text-xs text-orange-600 flex items-start gap-1.5">
                           <AlertTriangle size={10} className="mt-0.5 shrink-0" />
-                          {flag}
+                          {fraudFlagLabel(flag, tFlags)}
                         </li>
                       ))}
                     </ul>
