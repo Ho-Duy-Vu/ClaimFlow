@@ -3,7 +3,7 @@ import hashlib
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Response, UploadFile
 
 from app.api.deps import get_current_user
 from app.core.rate_limit import limiter
@@ -140,6 +140,41 @@ async def get_download_url(
     if not doc or (doc.user_id != str(current_user.id) and not is_privileged):
         raise HTTPException(404, "Document not found")
     return {"presigned_url": get_presigned_url(doc.file_key)}
+
+
+_MEDIA_BY_TYPE = {
+    "pdf": "application/pdf",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+}
+
+
+@router.get("/{document_id}/file")
+async def stream_document_file(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Stream a document's bytes inline (view in browser). Owner OR reviewer/admin.
+    Served through the backend to avoid MinIO-host/presigned issues in the browser
+    and to allow reviewers to inspect any claim's evidence during manual review."""
+    doc = await Document.get(document_id)
+    is_privileged = current_user.role in ("reviewer", "admin")
+    if not doc or (doc.user_id != str(current_user.id) and not is_privileged):
+        raise HTTPException(404, "Document not found")
+
+    try:
+        data = await download_file(doc.file_key)
+    except Exception as exc:
+        logger.warning("stream_document_file failed key=%s: %s", doc.file_key, exc)
+        raise HTTPException(404, "File not found in storage")
+
+    media = _MEDIA_BY_TYPE.get(doc.file_type, "application/octet-stream")
+    return Response(
+        content=data,
+        media_type=media,
+        headers={"Content-Disposition": f'inline; filename="{doc.file_name}"'},
+    )
 
 
 @router.delete("/{document_id}", status_code=204)

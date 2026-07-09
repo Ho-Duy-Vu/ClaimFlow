@@ -17,6 +17,8 @@ import { fraudFlagLabel } from '@/lib/fraudFlags';
 import { PROVINCES } from '@/lib/provinces';
 import type { User } from '@/types';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+
 interface ClaimUser {
   id: string;
   email: string;
@@ -360,18 +362,11 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
   const [txRef, setTxRef] = useState('');
   const [paying, setPaying] = useState(false);
 
-  // Open an evidence/supporting doc in a new tab (reviewer needs to inspect files)
-  const [openingDoc, setOpeningDoc] = useState<string | null>(null);
-  const openDoc = async (id: string) => {
-    setOpeningDoc(id);
-    try {
-      const r = await api.get<{ presigned_url: string }>(`/documents/${id}/download-url`);
-      window.open(r.data.presigned_url, '_blank', 'noopener,noreferrer');
-    } catch {
-      toast.error(t('docOpenFailed'));
-    } finally {
-      setOpeningDoc(null);
-    }
+  // Open an evidence/supporting doc in a new tab. Synchronous window.open (no await
+  // before it) so it isn't blocked by the popup blocker; served via the backend
+  // stream endpoint (cookie auth) so no MinIO-host/presigned issues.
+  const openDoc = (id: string) => {
+    window.open(`${API_BASE}/documents/${id}/file`, '_blank', 'noopener,noreferrer');
   };
 
   // Void linked policy (reviewer/admin power khi phát hiện bất thường)
@@ -653,7 +648,7 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
               <ul className="text-sm mb-2 space-y-1">
                 {claim.evidence_files.map((d) => (
                   <li key={d.id}>
-                    <DocButton d={d} accent="text-amber-600" opening={openingDoc === d.id} onOpen={() => openDoc(d.id)} viewLabel={t('viewFile')} />
+                    <DocButton d={d} accent="text-amber-600" onOpen={() => openDoc(d.id)} viewLabel={t('viewFile')} />
                   </li>
                 ))}
               </ul>
@@ -665,7 +660,7 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
               <ul className="text-sm space-y-1">
                 {claim.documents.map((d) => (
                   <li key={d.id}>
-                    <DocButton d={d} accent="text-gray-500" opening={openingDoc === d.id} onOpen={() => openDoc(d.id)} viewLabel={t('viewFile')} />
+                    <DocButton d={d} accent="text-gray-500" onOpen={() => openDoc(d.id)} viewLabel={t('viewFile')} />
                   </li>
                 ))}
               </ul>
@@ -755,6 +750,51 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
           && !!claim.additional_info_provided_at;
         const showReadonly =
           !!claim.reviewer_id && (isApproved || isRejected || isInfoReq);
+        // AI auto-approved (no human yet) → không cần xét lại; chỉ Thu hồi hoặc Vô hiệu gói
+        const aiAutoApproved = !claim.reviewer_id && isApproved;
+
+        if (aiAutoApproved) {
+          return (
+            <div className="border-t pt-4 space-y-3">
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle size={16} className="text-green-600" />
+                  <p className="font-semibold text-sm text-green-800">{t('aiAutoApproved')}</p>
+                </div>
+                {claim.amount_approved != null && (
+                  <p className="text-xs text-gray-700">
+                    {t('amountApproved')}: <span className="font-semibold">{fmtVND(claim.amount_approved)}</span>
+                  </p>
+                )}
+                <p className="text-xs text-gray-600 mt-1">{t('aiAutoApprovedHint')}</p>
+              </div>
+              <div>
+                <Label>{t('note')}</Label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full h-16 px-3 py-2 rounded-md border text-sm"
+                  placeholder={t('revokeNotePh')}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={onClose} disabled={submitting} className="px-3 text-xs">
+                  {tCommon('cancel')}
+                </Button>
+                <Button
+                  onClick={() => decide('rejected')}
+                  disabled={submitting}
+                  variant="destructive"
+                  className="flex-1 text-xs"
+                >
+                  {submitting ? <Loader2 className="animate-spin mr-1" size={12} /> : <X size={12} className="mr-1" />}
+                  {t('revokeApprovalBtn')}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 italic">{t('voidHintInPolicy')}</p>
+            </div>
+          );
+        }
 
         if (showReadonly) {
           const borderCls = isInfoReq ? 'border-amber-200 bg-amber-50'
@@ -1013,10 +1053,9 @@ function InfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DocButton({ d, accent, opening, onOpen, viewLabel }: {
+function DocButton({ d, accent, onOpen, viewLabel }: {
   d: { id: string; doc_type: string; file_name: string };
   accent: string;
-  opening: boolean;
   onOpen: () => void;
   viewLabel: string;
 }) {
@@ -1024,13 +1063,10 @@ function DocButton({ d, accent, opening, onOpen, viewLabel }: {
     <button
       type="button"
       onClick={onOpen}
-      disabled={opening}
       title={viewLabel}
-      className="group w-full flex items-center gap-2 text-left rounded-md px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-950/30 disabled:opacity-60"
+      className="group w-full flex items-center gap-2 text-left rounded-md px-2 py-1 hover:bg-blue-50 dark:hover:bg-blue-950/30"
     >
-      {opening
-        ? <Loader2 size={12} className="animate-spin shrink-0" />
-        : <FileText size={12} className={`${accent} shrink-0`} />}
+      <FileText size={12} className={`${accent} shrink-0`} />
       <span className="truncate text-blue-700 group-hover:underline">{d.file_name}</span>
       <span className="text-xs text-gray-400 shrink-0">({d.doc_type})</span>
       <ExternalLink size={11} className="ml-auto shrink-0 text-gray-400" />
