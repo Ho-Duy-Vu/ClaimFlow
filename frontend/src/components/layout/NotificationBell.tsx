@@ -52,7 +52,13 @@ export function NotificationBell() {
     } catch { /* not logged in / offline — ignore */ }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Initial load + periodic poll (WS handles the FastAPI process; polling catches
+  // notifications created by the separate Celery worker process too).
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 30000);
+    return () => clearInterval(iv);
+  }, [load]);
 
   // Realtime — per-user WebSocket channel
   useEffect(() => {

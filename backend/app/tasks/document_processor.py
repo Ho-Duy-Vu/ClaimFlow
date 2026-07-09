@@ -82,12 +82,16 @@ def process_claim(
         from app.models.policy import Policy
         from app.models.audit_log import AuditLog
         from app.models.user_policy import UserPolicy
+        from app.models.notification import Notification
+        from app.models.payment import Payment
         from app.services.ai.agent import run_claim_agent
+        from app.services.notifications import notify
 
         client = AsyncIOMotorClient(settings.MONGODB_URL)
         await init_beanie(
             database=client[settings.MONGODB_DB_NAME],
-            document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy, AuditLog, UserPolicy],
+            document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy,
+                             AuditLog, UserPolicy, Notification, Payment],
         )
 
         claim = await Claim.get(claim_id)
@@ -136,9 +140,10 @@ def process_claim(
             "need_more_info": "manual_review",
         }
 
+        final_status = status_map.get(decision, "manual_review")
         await Claim.find_one(Claim.id == claim.id).update({
             "$set": {
-                "status": status_map.get(decision, "manual_review"),
+                "status": final_status,
                 "ai_decision": decision,
                 "ai_reasoning": state["final_reasoning"],
                 "ai_fraud_score": state["fraud_score"],
@@ -148,9 +153,40 @@ def process_claim(
                 "province": state.get("province") or claim.province,
                 "disaster_type": state.get("disaster_type") or claim.disaster_type,
                 "processed_at": datetime.utcnow(),
+                "payment_status": "pending" if final_status == "approved" else "not_applicable",
             }
         })
         logger.info("Claim %s processed via Celery: %s", claim_id, decision)
+
+        # Notify the claimant of the AI decision
+        _ai_notif = {
+            "approve": ("claim_reviewed", "Yêu cầu bồi thường được duyệt",
+                        f"Claim {claim.claim_type} của bạn đã được hệ thống duyệt tự động."),
+            "reject": ("claim_reviewed", "Yêu cầu bồi thường bị từ chối",
+                       "Claim của bạn chưa đủ điều kiện — xem lý do & bấm \"Vì sao?\" trong chi tiết."),
+            "need_more_info": ("claim_info_requested", "Cần bổ sung thông tin",
+                               "Hồ sơ còn thiếu thông tin — vui lòng bổ sung để tiếp tục xử lý."),
+            "manual_review": ("system", "Yêu cầu đang được xét duyệt",
+                              "Claim của bạn đang được chuyên viên xét duyệt thủ công."),
+        }
+        _t, _title, _body = _ai_notif.get(decision, ("system", "Cập nhật yêu cầu bồi thường", ""))
+        await notify(claim.user_id, type=_t, title=_title, body=_body, link="/claims")
+
+        # Notify reviewers/admins when a claim needs manual review
+        if final_status == "manual_review":
+            try:
+                reviewers = await User.find(
+                    {"role": {"$in": ["reviewer", "admin"]}, "is_active": True}
+                ).to_list()
+                for r in reviewers:
+                    await notify(
+                        str(r.id), type="system",
+                        title="Có yêu cầu cần xét duyệt",
+                        body=f"Claim {claim.claim_type} cần xét duyệt thủ công (điểm rủi ro {state['fraud_score']}/100).",
+                        link="/reviewer",
+                    )
+            except Exception as exc:
+                logger.warning("Notify reviewers failed (celery) claim=%s: %s", claim_id, exc)
 
     return asyncio.run(_run())
 

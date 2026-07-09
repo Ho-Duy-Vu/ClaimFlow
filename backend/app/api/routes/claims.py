@@ -237,12 +237,51 @@ async def _process_claim_bg(
         })
         logger.info("Claim %s processed: %s (fraud=%d)", claim_id, decision, state["fraud_score"])
 
+        # ── Notify the claimant of the AI decision ─────────────────────────────
+        _ai_notif = {
+            "approve": ("claim_reviewed", "Yêu cầu bồi thường được duyệt",
+                        f"Claim {claim.claim_type} của bạn đã được hệ thống duyệt tự động."),
+            "reject": ("claim_reviewed", "Yêu cầu bồi thường bị từ chối",
+                       "Claim của bạn chưa đủ điều kiện — xem lý do & bấm \"Vì sao?\" trong chi tiết."),
+            "need_more_info": ("claim_info_requested", "Cần bổ sung thông tin",
+                               "Hồ sơ còn thiếu thông tin — vui lòng bổ sung để tiếp tục xử lý."),
+            "manual_review": ("system", "Yêu cầu đang được xét duyệt",
+                              "Claim của bạn đang được chuyên viên xét duyệt thủ công."),
+        }
+        _t, _title, _body = _ai_notif.get(decision, ("system", "Cập nhật yêu cầu bồi thường", ""))
+        await notify(claim.user_id, type=_t, title=_title, body=_body, link="/claims")
+
+        # ── Notify reviewers/admins when a claim needs manual review ───────────
+        if final_status == "manual_review":
+            try:
+                reviewers = await User.find(
+                    {"role": {"$in": ["reviewer", "admin"]}, "is_active": True}
+                ).to_list()
+                for r in reviewers:
+                    await notify(
+                        str(r.id), type="system",
+                        title="Có yêu cầu cần xét duyệt",
+                        body=f"Claim {claim.claim_type} cần xét duyệt thủ công (điểm rủi ro {state['fraud_score']}/100).",
+                        link="/reviewer",
+                    )
+            except Exception as exc:
+                logger.warning("Notify reviewers failed for claim %s: %s", claim_id, exc)
+
     except Exception as exc:
         logger.error("Claim processing failed %s: %s", claim_id, exc)
         await Claim.find_one(Claim.id == claim.id).update({
             "$set": {"status": "manual_review", "ai_reasoning": f"Xử lý tự động thất bại: {exc}"}
         })
         await ws_manager.push(claim_id, {"event": "error", "message": str(exc)})
+        try:
+            await notify(
+                claim.user_id, type="system",
+                title="Yêu cầu đang được xét duyệt",
+                body="Claim của bạn đang được chuyển cho chuyên viên xét duyệt.",
+                link="/claims",
+            )
+        except Exception:
+            pass
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
