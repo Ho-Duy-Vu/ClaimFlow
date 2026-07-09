@@ -37,6 +37,9 @@ export function Sidebar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch the current user once — the sidebar lives in the (app) layout and is NOT
+  // remounted when navigating between sibling routes, so re-fetching on every
+  // pathname change is wasteful (extra request + loading flash each nav).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -50,7 +53,7 @@ export function Sidebar() {
       }
     })();
     return () => { cancelled = true; };
-  }, [pathname]);
+  }, []);
 
   const allLinks: NavLink[] = [
     { href: `/${locale}/dashboard`, label: t('dashboard'), icon: LayoutDashboard, allowed: ['user', 'reviewer', 'admin'] },
