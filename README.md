@@ -464,8 +464,9 @@ ClaimFlow defines three roles with distinct permissions. The sidebar filters pag
 
 **Defense in depth:** the sidebar hides links, each page calls `/auth/me` and redirects on a role mismatch, and the backend dependencies `require_admin` / `require_reviewer` return 403.
 
-### Admin Dashboard (`/admin`) — five tabs
+### Admin Dashboard (`/admin`) — six tabs
 - **Users:** a table of all users, filterable by role/status, with an inline role dropdown and Activate/Deactivate buttons
+- **User Policies:** buyers list with per-user policy counts (flags anomalies like ≥5 policies) → drill-down to a user's policies → **void** a specific policy with a reason. Voiding is also available to **reviewers** from the claim they're reviewing.
 - **Analytics:** full system metrics — total users, claims, approval rate, fraud rate, top high-risk provinces, a reviewer-performance table, a daily bar chart, and a region breakdown
 - **Policies:** upload a new policy (auto-triggers a Celery job that ingests it into Qdrant), a card grid showing chunk count and last-ingested time, and a Delete button (which also removes the vectors)
 - **Audit Logs:** a timeline of every action, filterable by action type, target type, and start date

@@ -48,6 +48,8 @@ def _serialize(p: UserPolicy) -> dict:
         "payment_frequency": p.payment_frequency,
         "payment_method": p.payment_method,
         "terms_accepted": p.terms_accepted,
+        "voided_reason": p.voided_reason,
+        "voided_at": p.voided_at.isoformat() if p.voided_at else None,
         "created_at": p.created_at.isoformat(),
     }
 
@@ -406,8 +408,8 @@ async def renew_policy(
     old = await UserPolicy.get(policy_id)
     if not old or old.user_id != str(current_user.id):
         raise HTTPException(404, "Không tìm thấy gói bảo hiểm")
-    if old.status == "cancelled":
-        raise HTTPException(409, "Gói đã hủy không thể gia hạn")
+    if old.status in ("cancelled", "voided"):
+        raise HTTPException(409, "Gói đã hủy / bị vô hiệu hoá không thể gia hạn")
 
     now = datetime.utcnow()
     end_date = now + timedelta(days=365 * old.term_years)

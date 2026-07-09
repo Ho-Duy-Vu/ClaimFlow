@@ -1234,6 +1234,37 @@ JSON body — KHÔNG dùng multipart. Sau khi tạo doc, Celery task `ingest_pol
 }
 ```
 
+### GET `/admin/user-policies`
+Danh sách user đã mua bảo hiểm + số lượng gói (để check bất thường). Admin only.
+```json
+{
+  "total_buyers": 12,
+  "buyers": [
+    { "user_id": "...", "email": "a@x.vn", "full_name": "Nguyễn Văn A", "province": "Quảng Bình",
+      "is_active": true, "total": 6, "active": 4, "expired": 1, "cancelled": 0, "voided": 1,
+      "active_coverage": 2100000000, "active_premium": 21000000 }
+    // sort total DESC
+  ]
+}
+```
+
+### GET `/admin/user-policies/user/{user_id}`
+Drill-down tất cả gói của 1 user. Admin only.
+```json
+{ "user": { "id": "...", "email": "...", "full_name": "...", "province": "..." },
+  "policies": [ { "id": "...", "policy_number": "CF-HEA-...", "policy_type": "health",
+                  "plan_name": "...", "status": "voided", "voided_reason": "...", "voided_at": "..." } ] }
+```
+
+### PATCH `/admin/user-policies/{policy_id}/void`
+Vô hiệu hoá gói bảo hiểm khi phát hiện bất thường. **Role `reviewer` hoặc `admin`** (`require_reviewer`). CSRF required. Ghi audit `policy_voided` + notify chủ gói.
+```json
+// Body
+{ "reason": "Phát hiện gian lận / thông tin sai lệch" }   // min 3 ký tự
+// Response 200 → policy đã cập nhật status:"voided"
+// 409 nếu đã voided; 422 nếu thiếu reason
+```
+
 ---
 
 ## Reviewer Endpoints

@@ -165,7 +165,7 @@ RESEND_API_KEY=re_...
 | Role | Quyền |
 |------|-------|
 | **user** | Tài liệu + claims của mình, chatbot, geo risk map |
-| **reviewer** | Tất cả claims, override AI decision, reviewer queue & stats |
+| **reviewer** | Tất cả claims, override AI decision, reviewer queue & stats, **vô hiệu hoá gói BH bất thường** |
 | **admin** | Tất cả + user management, policy management, audit logs, system health |
 
 **Dependency Injection:**
@@ -186,10 +186,10 @@ claims          → status, claim_type, ai_decision, fraud_score, reviewer_note,
 geo_risks       → province, risk_scores, disaster_types, recommendations (63 tỉnh seeded)
 chat_sessions   → user_id, messages[] (max 50), context
 policies        → RAG source (ingested vào Qdrant, chunk_count, last_ingested)
-user_policies   → gói bảo hiểm user đã mua (policy_type ∈ 6 loại mới, status active|expired|cancelled,
-                  + expiry_reminder_sent, renewed_from)
+user_policies   → gói bảo hiểm user đã mua (policy_type ∈ 6 loại mới, status active|expired|cancelled|voided,
+                  + expiry_reminder_sent, renewed_from, voided_by/voided_reason/voided_at)
 audit_logs      → mọi action admin: role_change, user_deactivate/activate, policy_upload/delete, claim_override,
-                  policy_purchased, policy_renewed, payment_marked_paid
+                  policy_purchased, policy_renewed, payment_marked_paid, policy_voided
 ocr_bundles     → holistic multi-doc OCR (bundle_hash, consolidated_profile, inconsistencies)
 notifications   → in-app notify (user_id, type, title, body, link, read) — realtime qua WS per-user
 payments        → kỳ đóng phí của user_policy (installment_no, amount, due_date, status paid|pending, transaction_ref)
@@ -258,6 +258,10 @@ PATCH /admin/users/{id}/status   Activate/deactivate (audit log)
 GET   /admin/policies            Policy docs (RAG) — list với chunk_count, last_ingested
 POST  /admin/policies            JSON body — trigger Celery task ingest_policy_to_qdrant
 DELETE/admin/policies/{id}       Deactivate + xóa vectors khỏi Qdrant
+GET   /admin/user-policies       Danh sách user đã mua BH + count theo status (check bất thường) — admin
+GET   /admin/user-policies/user/{user_id}   Drill-down gói của 1 user — admin
+PATCH /admin/user-policies/{id}/void        Vô hiệu hoá gói (reason) — role reviewer|admin (require_reviewer),
+                                 audit policy_voided + notify user
 GET   /admin/audit-logs          Filter action/target_type/from_date/to_date
 GET   /admin/system/health       Ping mongodb/redis/qdrant/celery + latency
 GET   /admin/analytics/full      Full system: users, claims, fraud_rate, top_high_risk_provinces,

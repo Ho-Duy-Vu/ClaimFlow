@@ -163,7 +163,7 @@ class UserPolicy(Document):
     annual_premium: float                          # final premium after age multiplier
     base_premium: float | None = None              # original plan premium (before multiplier)
     age_multiplier: float | None = None
-    status: Literal["active", "expired", "cancelled"] = "active"
+    status: Literal["active", "expired", "cancelled", "voided"] = "active"
     start_date: datetime = Field(default_factory=datetime.utcnow)
     end_date: datetime
     term_years: int = 1
@@ -180,6 +180,11 @@ class UserPolicy(Document):
     # A3 — expiry reminder idempotency + renewal chaining
     expiry_reminder_sent: bool = False
     renewed_from: str | None = None          # policy_id gốc nếu đây là gói gia hạn
+
+    # Admin/Reviewer void (vô hiệu hoá khi phát hiện bất thường)
+    voided_by: str | None = None             # user_id của admin/reviewer
+    voided_reason: str | None = None
+    voided_at: datetime | None = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -1323,6 +1323,19 @@ async def log_action(actor: User, action: str, target_type: str, target_id: str,
 - `Sidebar` nhận props `mobileOpen/onNavigate` → drawer trượt (`fixed ... -translate-x-full` mobile, `md:static` desktop), đóng khi điều hướng
 - `dark:` áp cho app shell (bg/header/main) + NotificationBell dropdown; **per-page dark polish còn lại là follow-up** (chrome + notification đã dark-aware)
 
+### TASK-041 `[BE+FE]` Admin user-policy oversight + void (Admin/Reviewer) ✅
+
+**Mô tả:** Admin xem danh sách user đã mua BH + số lượng gói để phát hiện bất thường; Admin **và** Reviewer có quyền vô hiệu hoá 1 gói cụ thể.
+
+**Done — implementation:**
+- Model: `UserPolicy.status` thêm `voided`; fields `voided_by/voided_reason/voided_at`
+- BE `admin.py`: `GET /admin/user-policies` (admin — buyers + count theo status + active coverage/premium, cảnh báo total≥5), `GET /admin/user-policies/user/{id}` (drill-down), `PATCH /admin/user-policies/{id}/void` (**require_reviewer** → cả reviewer & admin; reason bắt buộc, audit `policy_voided`, notify user)
+- `renew` chặn gói `voided`; `_serialize` policy trả voided_reason/at
+- FE Admin: tab mới **"User Policies"** (bảng buyers → drill-down → nút Void + modal reason)
+- FE Reviewer: nút **"Vô hiệu hoá gói liên quan"** trong DetailPanel claim (dùng `claim.policy_id`) — reviewer thực thi quyền ngay trong luồng thẩm định
+- FE user: gói `voided` hiện banner tím + section "Vô hiệu" ở tab Lịch sử; chặn renew
+- i18n admin + reviewer + policies (vi/en)
+
 ---
 
 ## Nhóm B — Đề xuất (CHƯA CHỐT thành task)

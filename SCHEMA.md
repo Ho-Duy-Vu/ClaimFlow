@@ -210,9 +210,15 @@ class UserPolicy(Document):
     insurer: str = "ClaimFlow Insurance"
     coverage_amount: float      # Số tiền bảo hiểm tối đa (VND)
     annual_premium: float       # Phí bảo hiểm hàng năm (VND)
-    status: Literal["active", "expired", "cancelled"] = "active"
+    status: Literal["active", "expired", "cancelled", "voided"] = "active"
     start_date: datetime
-    end_date: datetime          # start_date + 1 năm
+    end_date: datetime          # start_date + term_years năm
+    # A3 / oversight
+    expiry_reminder_sent: bool = False
+    renewed_from: str | None = None       # policy_id gốc nếu là gói gia hạn
+    voided_by: str | None = None          # admin/reviewer đã vô hiệu hoá (nếu status=voided)
+    voided_reason: str | None = None
+    voided_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:

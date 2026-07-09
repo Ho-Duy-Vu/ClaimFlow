@@ -234,6 +234,7 @@ function HistoryPolicies({
   const history = useMemo(() => policies.filter((p) => p.status !== 'active'), [policies]);
   const cancelled = useMemo(() => history.filter((p) => p.status === 'cancelled'), [history]);
   const expired = useMemo(() => history.filter((p) => p.status === 'expired'), [history]);
+  const voided = useMemo(() => history.filter((p) => p.status === 'voided'), [history]);
 
   if (history.length === 0) {
     return (
@@ -283,6 +284,24 @@ function HistoryPolicies({
           </div>
         </section>
       )}
+
+      {voided.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-sm font-semibold text-purple-700 uppercase tracking-wide">
+              {t('voided')}
+            </h2>
+            <span className="text-xs text-gray-400">({voided.length})</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {voided.map((p) => (
+              <div key={p.id} className="opacity-80 hover:opacity-100 transition-opacity">
+                <PolicyRow policy={p} onClick={() => onSelect(p)} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -306,9 +325,10 @@ function PolicyRow({ policy, onClick }: { policy: UserPolicy; onClick: () => voi
     active:    'bg-green-100 text-green-700 border-green-200',
     expired:   'bg-gray-200 text-gray-600 border-gray-300',
     cancelled: 'bg-red-100 text-red-700 border-red-200',
+    voided:    'bg-purple-100 text-purple-700 border-purple-200',
   };
   const statusLabel: Record<string, string> = {
-    active: t('active'), expired: t('expired'), cancelled: t('cancelled'),
+    active: t('active'), expired: t('expired'), cancelled: t('cancelled'), voided: t('voided'),
   };
 
   // Days-left chip color (only for active)
@@ -518,6 +538,17 @@ function PolicyDetailModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Voided banner (admin/reviewer đã vô hiệu hoá) */}
+          {policy.status === 'voided' && (
+            <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 flex items-start gap-3">
+              <AlertTriangle size={18} className="text-purple-500 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-purple-700">{t('voidedBanner')}</p>
+                {policy.voided_reason && <p className="text-xs text-gray-600 mt-0.5">{policy.voided_reason}</p>}
+              </div>
+            </div>
+          )}
+
           {/* Expiry / renew banner */}
           {(policy.status === 'expired' || (isActive && daysLeft != null && daysLeft < 30)) && (
             <div className={`rounded-xl border p-4 flex items-start gap-3 ${
@@ -726,7 +757,7 @@ function PolicyDetailModal({
           >
             <ExternalLink size={14} className="mr-2" /> {t('viewClaims')}
           </Link>
-          {policy.status !== 'cancelled' && (
+          {policy.status !== 'cancelled' && policy.status !== 'voided' && (
             <Button
               variant="outline"
               size="sm"

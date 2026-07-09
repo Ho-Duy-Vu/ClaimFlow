@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import {
-  Activity, AlertCircle, BarChart3, FileText, Heart,
-  Loader2, RefreshCw, ScrollText, Shield, Trash2, Upload, Users as UsersIcon,
+  Activity, AlertCircle, BarChart3, Ban, FileText, Heart,
+  Loader2, RefreshCw, ScrollText, Shield, ShieldOff, Trash2, Upload, Users as UsersIcon, Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import api from '@/lib/api';
 import type { User } from '@/types';
 
-type TabKey = 'users' | 'analytics' | 'policies' | 'auditLogs' | 'systemHealth';
+type TabKey = 'users' | 'userPolicies' | 'analytics' | 'policies' | 'auditLogs' | 'systemHealth';
 
 interface AdminUser extends User {
   created_at: string;
@@ -116,6 +116,7 @@ export function AdminClient() {
 
   const tabs: Array<{ key: TabKey; label: string; icon: typeof UsersIcon }> = [
     { key: 'users', label: t('users'), icon: UsersIcon },
+    { key: 'userPolicies', label: t('userPolicies'), icon: Wallet },
     { key: 'analytics', label: t('analytics'), icon: BarChart3 },
     { key: 'policies', label: t('policies'), icon: FileText },
     { key: 'auditLogs', label: t('auditLogs'), icon: ScrollText },
@@ -145,6 +146,7 @@ export function AdminClient() {
       </div>
 
       {tab === 'users' && <UsersTab />}
+      {tab === 'userPolicies' && <UserPoliciesTab />}
       {tab === 'analytics' && <AnalyticsTab />}
       {tab === 'policies' && <PoliciesTab />}
       {tab === 'auditLogs' && <AuditLogsTab />}
@@ -323,6 +325,248 @@ function UsersTab() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── User Policies Tab (buyers list + void) ────────────────────────────────────
+
+interface Buyer {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  province: string | null;
+  is_active: boolean | null;
+  total: number;
+  active: number;
+  expired: number;
+  cancelled: number;
+  voided: number;
+  active_coverage: number;
+  active_premium: number;
+}
+
+interface AdminUserPolicy {
+  id: string;
+  user_id: string;
+  policy_number: string;
+  policy_type: string;
+  plan_name: string;
+  coverage_amount: number;
+  annual_premium: number;
+  status: 'active' | 'expired' | 'cancelled' | 'voided';
+  start_date: string;
+  end_date: string;
+  voided_reason: string | null;
+  voided_at: string | null;
+}
+
+function fmtVNDshort(n: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
+}
+
+function UserPoliciesTab() {
+  const t = useTranslations('admin');
+  const tClaims = useTranslations('claims');
+  const toast = useToast();
+
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Buyer | null>(null);
+  const [detail, setDetail] = useState<AdminUserPolicy[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<AdminUserPolicy | null>(null);
+  const [reason, setReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
+
+  const loadBuyers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get<{ buyers: Buyer[] }>('/admin/user-policies');
+      setBuyers(r.data.buyers);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadBuyers(); }, [loadBuyers]);
+
+  const openDetail = async (b: Buyer) => {
+    setSelected(b);
+    setDetailLoading(true);
+    try {
+      const r = await api.get<{ policies: AdminUserPolicy[] }>(`/admin/user-policies/user/${b.user_id}`);
+      setDetail(r.data.policies);
+    } catch { setDetail([]); } finally { setDetailLoading(false); }
+  };
+
+  const doVoid = async () => {
+    if (!voidTarget) return;
+    if (reason.trim().length < 3) { toast.error(t('voidReasonRequired')); return; }
+    setVoiding(true);
+    try {
+      await api.patch(`/admin/user-policies/${voidTarget.id}/void`, { reason: reason.trim() });
+      toast.success(t('voidSuccess'));
+      setVoidTarget(null);
+      setReason('');
+      if (selected) await openDetail(selected);
+      await loadBuyers();
+    } catch (e: unknown) {
+      const detailMsg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(detailMsg ?? t('voidFailed'));
+    } finally { setVoiding(false); }
+  };
+
+  const statusCls: Record<string, string> = {
+    active: 'bg-green-100 text-green-700',
+    expired: 'bg-gray-200 text-gray-600',
+    cancelled: 'bg-red-100 text-red-700',
+    voided: 'bg-purple-100 text-purple-700',
+  };
+
+  if (loading) {
+    return <div className="text-center py-12"><Loader2 className="inline animate-spin text-blue-600" size={24} /></div>;
+  }
+
+  // ── Detail view (one user's policies) ──
+  if (selected) {
+    return (
+      <Section title={`${t('policiesOf')} ${selected.full_name ?? selected.email ?? selected.user_id}`} icon={Wallet}>
+        <button onClick={() => setSelected(null)} className="text-sm text-blue-600 hover:underline mb-3">
+          ← {t('backToBuyers')}
+        </button>
+        {detailLoading ? (
+          <div className="text-center py-8"><Loader2 className="inline animate-spin text-gray-400" size={20} /></div>
+        ) : detail.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-6">{t('noPoliciesUser')}</p>
+        ) : (
+          <div className="space-y-2">
+            {detail.map((p) => (
+              <div key={p.id} className="border rounded-lg p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm text-gray-900">{p.plan_name}</span>
+                    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${statusCls[p.status]}`}>
+                      {t(`status.${p.status}`)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {tClaims(`claimTypes.${p.policy_type}` as never)} · <span className="font-mono">{p.policy_number}</span> · {fmtVNDshort(p.coverage_amount)}
+                  </p>
+                  {p.status === 'voided' && p.voided_reason && (
+                    <p className="text-xs text-purple-700 mt-1">⛔ {p.voided_reason}</p>
+                  )}
+                </div>
+                {p.status !== 'voided' && p.status !== 'cancelled' && (
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => { setVoidTarget(p); setReason(''); }}
+                    className="shrink-0 text-purple-700 border-purple-200 hover:bg-purple-50 gap-1"
+                  >
+                    <Ban size={13} /> {t('voidBtn')}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {voidTarget && (
+          <VoidModal
+            policy={voidTarget}
+            reason={reason}
+            setReason={setReason}
+            voiding={voiding}
+            onCancel={() => setVoidTarget(null)}
+            onConfirm={doVoid}
+          />
+        )}
+      </Section>
+    );
+  }
+
+  // ── Buyers list ──
+  return (
+    <Section title={t('userPolicies')} icon={Wallet}>
+      <p className="text-xs text-gray-500 mb-3">{t('userPoliciesHint')}</p>
+      {buyers.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-6">{t('noBuyers')}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-gray-500 border-b">
+                <th className="py-2 pr-3">{t('buyer')}</th>
+                <th className="py-2 px-2 text-center">{t('totalBought')}</th>
+                <th className="py-2 px-2 text-center">{t('status.active')}</th>
+                <th className="py-2 px-2 text-center">{t('status.voided')}</th>
+                <th className="py-2 px-2 text-right">{t('activeCoverage')}</th>
+                <th className="py-2 pl-2 text-right"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {buyers.map((b) => (
+                <tr key={b.user_id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 pr-3">
+                    <p className="font-medium text-gray-900">{b.full_name ?? '—'}</p>
+                    <p className="text-xs text-gray-500">{b.email}{b.province ? ` · ${b.province}` : ''}</p>
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <span className={`font-semibold ${b.total >= 5 ? 'text-orange-600' : 'text-gray-800'}`}>{b.total}</span>
+                    {b.total >= 5 && <AlertCircle size={12} className="inline ml-1 text-orange-500" />}
+                  </td>
+                  <td className="py-2 px-2 text-center text-green-700">{b.active}</td>
+                  <td className="py-2 px-2 text-center text-purple-700">{b.voided}</td>
+                  <td className="py-2 px-2 text-right text-gray-700">{fmtVNDshort(b.active_coverage)}</td>
+                  <td className="py-2 pl-2 text-right">
+                    <button onClick={() => openDetail(b)} className="text-xs text-blue-600 hover:underline">
+                      {t('viewPolicies')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function VoidModal({
+  policy, reason, setReason, voiding, onCancel, onConfirm,
+}: {
+  policy: AdminUserPolicy;
+  reason: string;
+  setReason: (v: string) => void;
+  voiding: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const t = useTranslations('admin');
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="bg-white rounded-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-1 text-purple-700">
+          <ShieldOff size={18} />
+          <h3 className="font-bold">{t('voidTitle')}</h3>
+        </div>
+        <p className="text-sm text-gray-600 mb-3">
+          {policy.plan_name} · <span className="font-mono text-xs">{policy.policy_number}</span>
+        </p>
+        <Label className="text-xs text-gray-600 mb-1 block">{t('voidReasonLabel')} *</Label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          placeholder={t('voidReasonPh')}
+          className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={voiding}>{t('cancel')}</Button>
+          <Button size="sm" onClick={onConfirm} disabled={voiding} className="bg-purple-600 hover:bg-purple-700 gap-1.5">
+            {voiding ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />}
+            {t('voidConfirm')}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

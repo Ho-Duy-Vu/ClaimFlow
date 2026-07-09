@@ -55,9 +55,11 @@ export interface UserPolicy {
   insurer: string;
   coverage_amount: number;
   annual_premium: number;
-  status: 'active' | 'expired' | 'cancelled';
+  status: 'active' | 'expired' | 'cancelled' | 'voided';
   start_date: string;
   end_date: string;
+  voided_reason?: string | null;
+  voided_at?: string | null;
 }
 
 export interface AppNotification {

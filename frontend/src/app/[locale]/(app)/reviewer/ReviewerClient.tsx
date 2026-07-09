@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import {
-  AlertTriangle, CheckCircle, Clock, Copy, FileText, Loader2,
+  AlertTriangle, Ban, CheckCircle, Clock, Copy, FileText, Loader2,
   RefreshCw, ShieldAlert, ShieldCheck, User as UserIcon, Wallet, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -358,6 +358,26 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
   const [txRef, setTxRef] = useState('');
   const [paying, setPaying] = useState(false);
 
+  // Void linked policy (reviewer/admin power khi phát hiện bất thường)
+  const [showVoid, setShowVoid] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
+
+  const voidLinkedPolicy = async () => {
+    if (!claim.policy_id) return;
+    if (voidReason.trim().length < 3) { toast.warning(t('voidReasonRequired')); return; }
+    setVoiding(true);
+    try {
+      await api.patch(`/admin/user-policies/${claim.policy_id}/void`, { reason: voidReason.trim() });
+      toast.success(t('voidSuccess'));
+      setShowVoid(false);
+      setVoidReason('');
+    } catch (e: unknown) {
+      const d = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(d ?? t('voidFailed'));
+    } finally { setVoiding(false); }
+  };
+
   // TASK-029: partial approval + request more info
   const [reductionReason, setReductionReason] = useState('');
   const [fieldsNeededRaw, setFieldsNeededRaw] = useState(''); // newline-separated
@@ -505,6 +525,50 @@ function DetailPanel({ claim, onDone, onClose }: { claim: QueueClaim; onDone: ()
             <InfoCell label={t('policyCoverage')} value={fmtVND(claim.policy.coverage_amount)} />
             <InfoCell label={t('policyRemaining')} value={fmtVND(claim.policy.coverage_remaining)} />
           </div>
+
+          {/* Void power — reviewer/admin vô hiệu hoá gói nếu phát hiện bất thường */}
+          {claim.policy_id && (
+            <div className="mt-3 pt-3 border-t">
+              {!showVoid ? (
+                <button
+                  onClick={() => setShowVoid(true)}
+                  className="text-xs text-purple-700 hover:text-purple-900 inline-flex items-center gap-1"
+                >
+                  <Ban size={13} /> {t('voidLinkedPolicy')}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">
+                    <Ban size={13} /> {t('voidLinkedPolicy')}
+                  </p>
+                  <textarea
+                    value={voidReason}
+                    onChange={(e) => setVoidReason(e.target.value)}
+                    rows={2}
+                    placeholder={t('voidReasonPh')}
+                    className="w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => { setShowVoid(false); setVoidReason(''); }}
+                      disabled={voiding}
+                      className="text-xs px-3 py-1.5 rounded-md border hover:bg-gray-50"
+                    >
+                      {tCommon('cancel')}
+                    </button>
+                    <button
+                      onClick={voidLinkedPolicy}
+                      disabled={voiding}
+                      className="text-xs px-3 py-1.5 rounded-md bg-purple-600 text-white hover:bg-purple-700 inline-flex items-center gap-1 disabled:opacity-60"
+                    >
+                      {voiding ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
+                      {t('voidConfirm')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </Section>
       )}
 

@@ -5,13 +5,15 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
-from app.api.deps import require_admin
+from app.api.deps import require_admin, require_reviewer
 from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.claim import Claim
 from app.models.geo_risk import GeoRisk
 from app.models.policy import Policy
 from app.models.user import User
+from app.models.user_policy import UserPolicy
+from app.services.notifications import notify
 
 logger = logging.getLogger(__name__)
 
@@ -474,3 +476,133 @@ async def delete_policy(
     )
 
     return {"ok": True, "vectors_deleted": vectors_deleted}
+
+
+# ── User policy oversight (Admin list + Admin/Reviewer void) ────────────────────
+
+def _serialize_user_policy_admin(p: UserPolicy) -> dict:
+    return {
+        "id": str(p.id),
+        "user_id": p.user_id,
+        "policy_number": p.policy_number,
+        "policy_type": p.policy_type,
+        "plan_name": p.plan_name,
+        "coverage_amount": p.coverage_amount,
+        "annual_premium": p.annual_premium,
+        "status": p.status,
+        "start_date": p.start_date.isoformat(),
+        "end_date": p.end_date.isoformat(),
+        "voided_by": p.voided_by,
+        "voided_reason": p.voided_reason,
+        "voided_at": p.voided_at.isoformat() if p.voided_at else None,
+        "created_at": p.created_at.isoformat(),
+    }
+
+
+@router.get("/user-policies")
+async def list_user_policies(
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """Danh sách user đã mua bảo hiểm + số lượng gói (theo trạng thái) để check
+    bất thường (mua quá nhiều gói, v.v.). Admin only."""
+    all_policies = await UserPolicy.find().to_list()
+
+    # Group per user
+    agg: dict[str, dict] = {}
+    for p in all_policies:
+        b = agg.setdefault(p.user_id, {
+            "user_id": p.user_id, "total": 0,
+            "active": 0, "expired": 0, "cancelled": 0, "voided": 0,
+            "active_coverage": 0.0, "active_premium": 0.0,
+        })
+        b["total"] += 1
+        b[p.status] = b.get(p.status, 0) + 1
+        if p.status == "active":
+            b["active_coverage"] += p.coverage_amount
+            b["active_premium"] += p.annual_premium
+
+    # Join user info (buyer count is small at demo scale → per-id fetch is fine)
+    buyers = []
+    for uid, b in agg.items():
+        try:
+            u = await User.get(uid)
+        except Exception:
+            u = None
+        buyers.append({
+            **b,
+            "email": u.email if u else None,
+            "full_name": u.full_name if u else None,
+            "province": u.province if u else None,
+            "is_active": u.is_active if u else None,
+        })
+    buyers.sort(key=lambda x: x["total"], reverse=True)
+
+    return {"total_buyers": len(buyers), "buyers": buyers}
+
+
+@router.get("/user-policies/user/{user_id}")
+async def get_user_policies_detail(
+    user_id: str,
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """Chi tiết tất cả gói của 1 user (drill-down). Admin only."""
+    policies = await UserPolicy.find(
+        UserPolicy.user_id == user_id
+    ).sort(-UserPolicy.created_at).to_list()
+    target = await User.get(user_id)
+    return {
+        "user": _serialize_user(target) if target else {"id": user_id},
+        "policies": [_serialize_user_policy_admin(p) for p in policies],
+    }
+
+
+class VoidPolicyRequest(BaseModel):
+    reason: str
+
+
+@router.patch("/user-policies/{policy_id}/void")
+async def void_user_policy(
+    policy_id: str,
+    body: VoidPolicyRequest,
+    request: Request,
+    current_user: User = Depends(require_reviewer),
+) -> dict:
+    """Vô hiệu hoá gói bảo hiểm của 1 user khi phát hiện bất thường.
+    Cho phép cả **reviewer** và **admin** (require_reviewer). Ghi audit + notify user."""
+    reason = (body.reason or "").strip()
+    if len(reason) < 3:
+        raise HTTPException(422, "Cần nêu lý do vô hiệu hoá (tối thiểu 3 ký tự)")
+
+    policy = await UserPolicy.get(policy_id)
+    if not policy:
+        raise HTTPException(404, "Không tìm thấy gói bảo hiểm")
+    if policy.status == "voided":
+        raise HTTPException(409, "Gói này đã bị vô hiệu hoá")
+
+    previous_status = policy.status
+    policy.status = "voided"
+    policy.voided_by = str(current_user.id)
+    policy.voided_reason = reason
+    policy.voided_at = datetime.utcnow()
+    await policy.save()
+
+    await log_action(
+        current_user, "policy_voided", "user_policy", policy_id,
+        {
+            "policy_number": policy.policy_number,
+            "policy_type": policy.policy_type,
+            "owner_id": policy.user_id,
+            "previous_status": previous_status,
+            "reason": reason,
+        },
+        request.client.host if request.client else None,
+    )
+
+    await notify(
+        policy.user_id, type="system",
+        title="Gói bảo hiểm bị vô hiệu hoá",
+        body=f"Gói {policy.plan_name} ({policy.policy_number}) đã bị vô hiệu hoá. Lý do: {reason}",
+        link="/policies",
+    )
+
+    return _serialize_user_policy_admin(policy)
