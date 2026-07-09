@@ -404,7 +404,12 @@ async def renew_policy(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Gia hạn gói — tạo UserPolicy mới nối tiếp, cùng plan/term. Gói cũ (nếu còn
-    active) chuyển 'expired' vì đã được thay thế. Sinh lịch đóng phí mới."""
+    active) chuyển 'expired' → hiện ở tab Lịch sử; gói mới active → hiện ở "Gói của tôi".
+
+    Duration: **cộng dồn số ngày còn lại** — mốc bắt đầu = ngày hết hạn cũ nếu gói còn
+    hạn (giữ lại phần chưa dùng), hoặc hôm nay nếu đã hết hạn. `start_date = now` để có
+    hiệu lực ngay, không tạo khoảng trống bảo hiểm.
+    Ví dụ: còn 1 ngày → gia hạn 1 năm → còn 1 + 365 = 366 ngày."""
     old = await UserPolicy.get(policy_id)
     if not old or old.user_id != str(current_user.id):
         raise HTTPException(404, "Không tìm thấy gói bảo hiểm")
@@ -412,7 +417,8 @@ async def renew_policy(
         raise HTTPException(409, "Gói đã hủy / bị vô hiệu hoá không thể gia hạn")
 
     now = datetime.utcnow()
-    end_date = now + timedelta(days=365 * old.term_years)
+    base = old.end_date if old.end_date > now else now   # giữ ngày còn lại nếu còn hạn
+    end_date = base + timedelta(days=365 * old.term_years)
     new = UserPolicy(
         user_id=old.user_id,
         policy_number=f"CF-{old.policy_type[:3].upper()}-{uuid.uuid4().hex[:8].upper()}",
