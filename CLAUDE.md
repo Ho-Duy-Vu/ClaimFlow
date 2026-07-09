@@ -43,7 +43,7 @@ backend/app/
 │                   ocr_bundle · notification · payment
 ├── schemas/         auth · document
 ├── services/
-│   ├── ai/          agent · ocr · merger · chatbot · rag
+│   ├── ai/          agent · ocr · merger · chatbot · rag · explainer
 │   ├── geo/         risk_engine (incl. province_data, _normalize_vn, aliases)
 │   ├── notifications.py   (per-user WS manager + notify())
 │   ├── pdf_generator.py   (contract · invoice · payment receipt)
@@ -221,6 +221,7 @@ DELETE/chatbot/session/{id}      Xóa session
 POST  /claims/submit             Submit claim (JSON body — claim_type ∈ 6 loại mới)
 GET   /claims · /claims/{id} · DELETE /claims/{id}
 PATCH /claims/{id}/review        Reviewer override
+POST  /claims/{id}/explain       AI giải thích kết quả cho KH (owner|reviewer|admin) — privacy-safe
 
 # User Policy (insurance registration & management)
 GET   /policies/plans            Danh sách 6 loại × 3 gói (public, không cần auth)

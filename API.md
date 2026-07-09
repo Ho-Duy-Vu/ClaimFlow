@@ -668,6 +668,16 @@ Chỉ role `reviewer` hoặc `admin`. Yêu cầu `X-CSRF-Token`.
 // Error 400: claim không ở trạng thái manual_review
 ```
 
+### POST `/claims/{id}/explain`
+AI giải thích kết quả claim cho khách hàng (thân thiện, privacy-safe). Chính chủ hoặc `reviewer`/`admin`. Rate limit 20/phút. CSRF required.
+```json
+// Query: ?locale=vi | en
+// Response 200
+{ "explanation": "Yêu cầu của bạn được duyệt vì ... Bạn sẽ nhận tiền trong 3-5 ngày ...", "status": "approved" }
+// 403 nếu không phải chủ claim / reviewer / admin
+// 503 nếu AI tạm thời không phản hồi
+```
+
 ---
 
 ## Analytics

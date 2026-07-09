@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   AlertTriangle, Check, CheckCircle, ChevronRight, Clock,
-  Download, FileText, Loader2, Plus, ShieldAlert, Trash2, Upload, X,
+  Download, FileText, Loader2, Plus, ShieldAlert, Sparkles, Trash2, Upload, X,
 } from 'lucide-react';
 // ShieldAlert kept for DetailModal fraud section
 import { Button } from '@/components/ui/button';
@@ -78,8 +78,26 @@ function DetailModal({
 }) {
   const t = useTranslations('claims');
   const tc = useTranslations('common');
+  const locale = useLocale();
   const toast = useToast();
+  const [explanation, setExplanation] = useState('');
+  const [explaining, setExplaining] = useState(false);
   const [liveStatus, setLiveStatus] = useState(claim.status);
+
+  const getExplanation = async () => {
+    setExplaining(true);
+    try {
+      const res = await api.post<{ explanation: string }>(
+        `/claims/${claim.id}/explain`, {}, { params: { locale } },
+      );
+      setExplanation(res.data.explanation);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      toast.error(msg ?? t('whyFailed'));
+    } finally {
+      setExplaining(false);
+    }
+  };
   const [liveData, setLiveData] = useState<Partial<Claim>>({});
   const [providedAt, setProvidedAt] = useState<string | null>(
     claim.additional_info_provided_at ?? null
@@ -451,6 +469,30 @@ function DetailModal({
             <div className="bg-blue-50 rounded-xl border border-blue-100 p-3">
               <p className="text-xs text-blue-500 mb-1">{t('reviewNote')}</p>
               <p className="text-sm text-blue-800">{merged.reviewer_note}</p>
+            </div>
+          )}
+
+          {/* B1 — AI explainer: "Vì sao?" */}
+          {['approved', 'rejected', 'manual_review', 'info_requested'].includes(liveStatus) && (
+            <div className="bg-violet-50 rounded-xl border border-violet-100 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-violet-700 flex items-center gap-1.5">
+                  <Sparkles size={13} /> {t('whyTitle')}
+                </p>
+                {!explanation && (
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={getExplanation} disabled={explaining}
+                    className="h-7 text-xs gap-1.5 text-violet-700 border-violet-200 hover:bg-violet-100"
+                  >
+                    {explaining ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {explaining ? t('whyLoading') : t('whyBtn')}
+                  </Button>
+                )}
+              </div>
+              {explanation && (
+                <p className="text-sm text-gray-700 leading-relaxed mt-2 whitespace-pre-wrap">{explanation}</p>
+              )}
             </div>
           )}
         </div>

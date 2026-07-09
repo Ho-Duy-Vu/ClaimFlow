@@ -1336,13 +1336,24 @@ async def log_action(actor: User, action: str, target_type: str, target_id: str,
 - FE user: gói `voided` hiện banner tím + section "Vô hiệu" ở tab Lịch sử; chặn renew
 - i18n admin + reviewer + policies (vi/en)
 
+### TASK-042 `[AI+FE]` AI explainer cho claim (từ đề xuất B1) ✅
+
+**Mô tả:** Biến AI reasoning kỹ thuật thành lời giải thích thân thiện cho khách hàng — "vì sao claim được duyệt / từ chối / cần bổ sung" + gợi ý bước tiếp theo. Khép kín với luồng Notification (user nhận thông báo → hỏi "vì sao?").
+
+**Done — implementation:**
+- `services/ai/explainer.py` — `explain_claim(claim, policy, locale)` dùng Gemini DEFAULT tier; system prompt privacy-safe (không lộ PII, không đọc fraud score thô, diễn giải mang tính xây dựng, hỗ trợ vi/en), retry 429
+- `POST /claims/{id}/explain?locale=` — chính chủ hoặc reviewer/admin, rate limit 20/phút; nạp context từ ai_decision/ai_reasoning/fraud_flags/reviewer_note/reduction_reason/additional_info_requested + gói liên quan
+- FE `ClaimsClient` DetailModal: card tím "Giải thích bằng AI" + nút "Vì sao có kết quả này?" (chỉ hiện với claim đã có kết quả: approved/rejected/manual_review/info_requested)
+- i18n `claims.whyTitle/whyBtn/whyLoading/whyFailed` (vi/en)
+- Backend 70 routes; tsc clean
+
 ---
 
 ## Nhóm B — Đề xuất (CHƯA CHỐT thành task)
 
 > Đã thảo luận tuần 6, giá trị cao và hợp project nhưng **chưa quyết làm**. Ghi lại để cân nhắc; khi chốt sẽ nâng thành TASK-04x.
 
-- **B1 — AI explainer cho claim** ⭐: chatbot đọc `ai_decision + fraud_flags + matched_clause` của 1 claim cụ thể → giải thích dễ hiểu "vì sao duyệt/từ chối" + gợi ý bổ sung. Tận dụng chatbot RAG sẵn có.
+- ~~**B1 — AI explainer cho claim** ⭐~~ → **đã triển khai: TASK-042** ✅
 - **B2 — So sánh gói side-by-side**: bảng so sánh 3 gói (coverage/premium/loại trừ) của 1 loại trước khi đăng ký. (trùng 1 mục Backlog)
 - **B3 — Semantic search hồ sơ**: search claims/tài liệu bằng ngôn ngữ tự nhiên qua Qdrant (embedding hạ tầng đã có).
 - **B4 — Claim timeline cho user**: timeline trực quan vòng đời claim (submitted → processed → review → info_requested → approved → paid) từ audit log/status history.

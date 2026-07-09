@@ -933,6 +933,53 @@ async def mark_claim_paid(
     }
 
 
+@router.post("/{claim_id}/explain")
+@limiter.limit("20/minute")
+async def explain_claim_endpoint(
+    claim_id: str,
+    request: Request,
+    locale: str = "vi",
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """B1 — Giải thích thân thiện kết quả claim cho khách hàng (AI).
+    Chính chủ hoặc reviewer/admin. Rate limit 20/phút."""
+    from app.models.user_policy import UserPolicy
+    from app.services.ai.explainer import explain_claim
+
+    claim = await Claim.get(claim_id)
+    if not claim:
+        raise HTTPException(404, "Không tìm thấy yêu cầu bồi thường")
+    if claim.user_id != str(current_user.id) and current_user.role not in ("reviewer", "admin"):
+        raise HTTPException(403, "Không có quyền xem giải thích cho claim này")
+
+    claim_ctx = {
+        "claim_type": claim.claim_type,
+        "status": claim.status,
+        "amount_claimed": claim.amount_claimed,
+        "amount_approved": claim.amount_approved,
+        "is_partial_approval": claim.is_partial_approval,
+        "reduction_reason": claim.reduction_reason,
+        "ai_decision": claim.ai_decision,
+        "ai_reasoning": claim.ai_reasoning,
+        "ai_fraud_flags": claim.ai_fraud_flags,
+        "reviewer_note": claim.reviewer_note,
+        "additional_info_requested": claim.additional_info_requested,
+        "disaster_type": claim.disaster_type,
+    }
+    policy_ctx = None
+    if claim.policy_id:
+        p = await UserPolicy.get(claim.policy_id)
+        if p:
+            policy_ctx = {"plan_name": p.plan_name, "coverage_amount": p.coverage_amount}
+
+    loc = "en" if str(locale).lower().startswith("en") else "vi"
+    try:
+        explanation = await explain_claim(claim_ctx, policy_ctx, loc)
+    except Exception as exc:
+        raise HTTPException(503, str(exc))
+    return {"explanation": explanation, "status": claim.status}
+
+
 # ── WebSocket ──────────────────────────────────────────────────────────────────
 
 @router.websocket("/ws/{claim_id}")
