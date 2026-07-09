@@ -324,53 +324,68 @@ async def fraud_detection(state: ClaimState) -> dict:
     desc_quality = state["parsed_data"].get("description_quality", "medium")
     amount = state["amount_claimed"]
     claim_type = state["claim_type"]
+    limit = state.get("coverage_limit", 0.0)
+    is_covered = state.get("is_covered", True)
+    evidence_count = state.get("evidence_count", 0)
+    required = state.get("required_evidence_count", 1)
+    evidence_ok = evidence_count >= required
 
-    prompt = f"""Đánh giá nguy cơ gian lận của yêu cầu bồi thường bảo hiểm sau.
+    prompt = f"""Bạn là chuyên viên thẩm định bảo hiểm GIÀU KINH NGHIỆM. Chấm điểm nguy cơ gian lận (0-100) cho yêu cầu bồi thường dưới đây.
 
-Chi tiết:
-- Loại: {claim_type}
-- Số tiền: {amount:,.0f} VND
+NGUYÊN TẮC CHẤM (BẮT BUỘC — tránh nghi oan khách hàng chân chính):
+- MẶC ĐỊNH: một yêu cầu HỢP LỆ, mô tả rõ ràng, số tiền hợp lý, có chứng từ → RỦI RO THẤP (0-25).
+- CHỈ nâng điểm khi có DẤU HIỆU GIAN LẬN CỤ THỂ, ví dụ:
+  • Mô tả mâu thuẫn / phi lý / chung chung như sao chép mẫu
+  • Số tiền cao bất thường so với loại sự cố hoặc vượt xa mặt bằng
+  • Thiếu ngày xảy ra sự cố, thiếu chứng từ bắt buộc
+  • Thông tin không khớp (địa điểm/thời gian/loại hình)
+- KHÔNG nâng điểm chỉ vì "chưa đủ thông tin để chắc chắn". Không có dấu hiệu rõ ràng → chấm THẤP.
+
+THANG ĐIỂM:
+- 0-25  = bình thường, không dấu hiệu → nên DUYỆT
+- 26-55 = vài điểm cần lưu ý nhưng chưa nghiêm trọng
+- 56-100 = có dấu hiệu gian lận rõ → cần thẩm định thủ công
+
+BỐI CẢNH YÊU CẦU:
+- Loại bảo hiểm: {claim_type}
+- Số tiền yêu cầu: {amount:,.0f} VND (hạn mức gói: {limit:,.0f} VND)
+- Đã qua kiểm tra điều khoản (is_covered): {is_covered}
 - Tỉnh: {province} (vùng rủi ro cao thiên tai: {in_high_risk})
-- Thiên tai: {disaster_type}
+- Loại thiên tai: {disaster_type}
 - Chất lượng mô tả: {desc_quality}
-- Tóm tắt: {state['raw_text'][:600]}
+- Chứng từ đính kèm: {evidence_count}/{required} (đầy đủ: {evidence_ok})
+- Tóm tắt sự cố: {state['raw_text'][:600]}
 - Dữ liệu trích xuất: {json.dumps(state.get('parsed_data', {}), ensure_ascii=False)}
 
-Trả về JSON (CHỈ JSON):
+Trả về CHỈ JSON (không kèm giải thích ngoài JSON):
 {{
-  "fraud_score": 0-100,
-  "fraud_flags": ["cờ gian lận nếu có"],
+  "fraud_score": <số nguyên 0-100>,
+  "fraud_flags": [<mã ngắn snake_case tiếng Anh, vd: unreasonable_claim_amount, missing_event_date>],
   "reasoning": "lý do ngắn gọn"
-}}
-Fraud score 0=không gian lận, 100=chắc chắn gian lận."""
+}}"""
 
-    fraud_score = 20  # default low risk
+    fraud_score = 15  # default: low risk unless a concrete signal is found
     fraud_flags: list[str] = []
 
     try:
         raw = await _gemini_call(prompt)
         result = _parse_json(raw)
-        fraud_score = max(0, min(100, int(result.get("fraud_score", 20))))
-        fraud_flags = result.get("fraud_flags", [])
+        fraud_score = max(0, min(100, int(result.get("fraud_score", 15))))
+        fraud_flags = result.get("fraud_flags", []) or []
     except Exception as exc:
         logger.error("[%s] fraud_detection failed: %s", state["claim_id"], exc)
-        # Heuristic fallback
+        # Calm heuristic fallback — only concrete signals raise the score
         if desc_quality == "low":
-            fraud_score = 50
-            fraud_flags.append("Mô tả sự kiện quá sơ sài")
+            fraud_score = 45
+            fraud_flags.append("low_description_quality")
         if claim_type == "disaster" and not in_high_risk:
             fraud_score = max(fraud_score, 40)
-            fraud_flags.append(f"Tỉnh {province} không thuộc vùng thiên tai thường xuyên")
+            fraud_flags.append("province_mismatch")
 
-    # Evidence-count signal (TASK-027): too few evidence files → +15
-    evidence_count = state.get("evidence_count", 0)
-    required = state.get("required_evidence_count", 1)
-    if evidence_count < required:
-        deficit = required - evidence_count
-        fraud_score = min(100, fraud_score + 15)
-        fraud_flags.append(
-            f"Chứng từ thiếu {deficit}/{required} so với yêu cầu cho loại bồi thường này"
-        )
+    # Evidence-count signal (TASK-027): mild nudge, not decisive on its own
+    if not evidence_ok:
+        fraud_score = min(100, fraud_score + 10)
+        fraud_flags.append("insufficient_evidence")
 
     return {"fraud_score": fraud_score, "fraud_flags": fraud_flags}
 
@@ -402,23 +417,15 @@ async def make_decision(state: ClaimState) -> dict:
             "amount_approved": None,
         }
 
-    if fraud_score >= 75:
+    # Only genuinely high fraud risk goes to manual review — a well-documented,
+    # plausible claim should auto-approve (avoid false positives on real users).
+    if fraud_score >= 70:
         flags_str = "; ".join(fraud_flags) if fraud_flags else "Phân tích AI phát hiện bất thường"
         return {
             "final_decision": "manual_review",
             "final_reasoning": (
                 f"Điểm rủi ro gian lận cao ({fraud_score}/100). "
                 f"Cần xét duyệt thủ công. Các cờ: {flags_str}."
-            ),
-            "amount_approved": None,
-        }
-
-    if fraud_score >= 50:
-        return {
-            "final_decision": "manual_review",
-            "final_reasoning": (
-                f"Điểm rủi ro gian lận trung bình ({fraud_score}/100). "
-                f"Chuyển xét duyệt thủ công để đảm bảo chất lượng."
             ),
             "amount_approved": None,
         }
