@@ -5,6 +5,23 @@
 
 ---
 
+## 0. One-command launch (Windows Terminal — chạy hết 4 terminal cho lẹ)
+
+> Yêu cầu **Windows Terminal** (`wt`). Mở 4 tab: Infra · Backend · Celery · Frontend.
+> Backend/Celery tự `Activate.ps1` venv **trước rồi mới** chạy uvicorn/celery.
+> Paste nguyên dòng dưới vào **PowerShell** (chú ý các `` `; `` ngăn cách giữa các tab):
+
+```powershell
+wt --title "1·Infra" -d "C:\Project\AI-Claims-Processing-Assistant" powershell -NoExit -Command "docker compose up -d\; docker compose ps" `; new-tab --title "2·Backend" -d "C:\Project\AI-Claims-Processing-Assistant\backend" powershell -NoExit -ExecutionPolicy Bypass -Command ".\venv\Scripts\Activate.ps1\; uvicorn app.main:app --reload --port 8000" `; new-tab --title "3·Celery" -d "C:\Project\AI-Claims-Processing-Assistant\backend" powershell -NoExit -ExecutionPolicy Bypass -Command ".\venv\Scripts\Activate.ps1\; celery -A app.tasks worker --loglevel=info --pool=solo" `; new-tab --title "4·Frontend" -d "C:\Project\AI-Claims-Processing-Assistant\frontend" powershell -NoExit -Command "npm run dev"
+```
+
+> **Lưu ý escape:** dấu `;` **bên trong** mỗi `-Command` phải viết thành `\;` để Windows Terminal không cắt nhầm thành tab mới (wt dùng `;` làm dấu ngăn tab). Dấu `` `; `` ở giữa các tab là dấu ngăn tab cố ý.
+
+> Muốn để dành xài lại: lưu nội dung trên thành `start-all.ps1` ở thư mục gốc rồi chỉ cần gõ `.\start-all.ps1`.
+> Các block 1–4 bên dưới là phiên bản chạy **thủ công từng terminal** (khi cần debug riêng lẻ).
+
+---
+
 ## 1. Hạ tầng (Docker — chạy 1 lần, để nền)
 
 ```bash

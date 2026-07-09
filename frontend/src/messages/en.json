@@ -46,7 +46,9 @@
     "weakPassword": "Password must be at least 8 characters with uppercase, lowercase, and a number",
     "invalidEmail": "Invalid email address",
     "loginFailed": "Incorrect email or password",
-    "registerSuccess": "Registration successful"
+    "registerSuccess": "Registration successful",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "documents": {
     "upload": "Upload Document",

@@ -46,7 +46,9 @@
     "weakPassword": "Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, thường và số",
     "invalidEmail": "Email không hợp lệ",
     "loginFailed": "Email hoặc mật khẩu không đúng",
-    "registerSuccess": "Đăng ký thành công"
+    "registerSuccess": "Đăng ký thành công",
+    "showPassword": "Hiện mật khẩu",
+    "hidePassword": "Ẩn mật khẩu"
   },
   "documents": {
     "upload": "Tải lên tài liệu",

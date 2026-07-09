@@ -1,8 +1,13 @@
 # ClaimFlow 🌊
 
-> Nền tảng bảo hiểm thông minh — Xử lý tài liệu AI, phân tích rủi ro thiên tai, và tư vấn bảo hiểm cá nhân hóa cho thị trường Việt Nam.
+> AI-powered insurtech platform — automated document processing, natural-disaster risk analytics, and personalized insurance advisory, built for the Vietnamese market.
 
----
+**Language:** 🇬🇧 English (primary) · 🇻🇳 Tiếng Việt — *click the collapsible section just below to expand the Vietnamese version*
+
+<details>
+<summary>🇻🇳 <b>Phiên bản Tiếng Việt</b> — nhấp để mở / click to expand</summary>
+
+<br>
 
 ## Giới thiệu
 
@@ -10,119 +15,181 @@ ClaimFlow là ứng dụng insurtech tích hợp AI giúp người dùng Việt 
 
 Dự án là một sản phẩm insurtech cá nhân, tích hợp các khái niệm System Design thực tế: LangGraph agent, RAG pipeline, event-driven architecture, message queue, WebSocket, và containerization.
 
----
-
 ## Tính năng chính
 
+- **📄 Document Intelligence** — OCR tiếng Việt độ chính xác cao (Gemini Vision), trích xuất dữ liệu có cấu trúc từ PDF/PNG/JPG, merge nhiều tài liệu (loại field trùng), highlight vùng đã trích xuất, chỉnh sửa trực quan, export JSON/Markdown.
+- **📋 Insurance Registration Flow** — sau OCR hiện nút "Đăng ký bảo hiểm", pre-fill thông tin khách hàng, auto-detect tỉnh → fetch geo risk → đề xuất gói. 6 loại × 3 gói (Cơ Bản / Nâng Cao / Toàn Diện).
+- **🌍 Geo Risk Intelligence** — risk score theo tỉnh/vùng miền (Bắc/Trung/Nam), cảnh báo Bão/Lũ/Ngập/Sạt lở, bản đồ choropleth Leaflet (GeoJSON WGS84), nhận diện tỉnh không dấu + alias (HCM, Saigon, HN).
+- **💬 AI Insurance Chatbot** — Gemini Pro tư vấn 24/7 theo vùng miền, cross-sell combo, bảo vệ PII (không lộ CCCD/SĐT/địa chỉ), trang chuyên dụng `/chatbot`.
+- **🛡️ Insurance Browse & Buy (`/policies`)** — Tab "Gói của tôi" (filter Active/Expired/Cancelled, cancel có confirm, badge còn X ngày) + Tab "Mua gói mới".
+- **🏠 Dashboard** — welcome banner theo role, snapshot cards, high-risk alert, recent claims, quick actions, my policies grid.
+- **🔍 Claim Processing (AI Agent)** — LangGraph 4 node `extract_data → check_coverage → fraud_detection → make_decision`, RAG trên Qdrant, real-time qua WebSocket, human review.
+- **📊 Analytics Dashboard (`/analytics`)** — 4 metric card, daily bar chart, region pie (SVG thuần), disaster/claim type breakdown, scope tự động theo role.
+- **🌐 Bilingual UI (EN / VI)** — chuyển ngôn ngữ tức thì, URL-based locale `/vi` · `/en`, powered by next-intl.
+
+## Loại bảo hiểm
+
+| Loại | Mã | Mô tả |
+|---|---|---|
+| **Sức khỏe** | `health` | Khám chữa bệnh, nội trú, ngoại trú, phẫu thuật |
+| **Nhân thọ** | `life` | Bảo vệ thu nhập gia đình, tử vong, thương tật |
+| **Tài sản** | `property` | Nhà ở, đồ dùng, thiệt hại do thiên tai hoặc trộm cắp |
+| **Xe cộ** | `vehicle` | Tai nạn xe, va chạm, trộm cắp phương tiện |
+| **Thiên tai** | `disaster` | Bão, lũ lụt, sạt lở, ngập úng — ưu tiên vùng rủi ro cao |
+| **Thu nhập** | `income` | Mất việc làm, tai nạn lao động, an sinh xã hội |
+
+## Phân quyền
+
+3 roles: **user** (tài liệu + claims của mình, chatbot, geo risk), **reviewer** (tất cả claims, override AI, queue & stats), **admin** (tất cả + quản lý user/policy, audit logs, system health). Defense-in-depth: Sidebar ẩn link + page redirect nếu sai role + backend dependency `require_admin`/`require_reviewer` trả 403.
+
+## Bảo mật
+
+- **Auth:** JWT HS256 expire 7 ngày, bcrypt cost 12, token trong httpOnly cookie (không localStorage).
+- **CSRF:** Double Submit Cookie — verify header `X-CSRF-Token` == cookie trước mọi mutating request.
+- **Rate limiting** per IP (login 5/phút, upload 10/phút, chat 30/phút).
+- **Data protection:** không lộ PII trong chatbot, prompt injection defense, input validation qua Pydantic, Request ID mọi response.
+- **OCR:** cache theo MD5 file hash, confidence threshold 0.7 flag "Cần xác nhận".
+
+## Cài đặt & Chạy local
+
+```bash
+git clone https://github.com/Ho-Duy-Vu/vurance.git
+cd vurance
+cp .env.example .env          # điền GEMINI_API_KEY
+docker compose up -d
+cd backend && pip install -r requirements.txt && python scripts/seed.py && python scripts/ingest_policies.py
+uvicorn app.main:app --reload --port 8000
+celery -A app.tasks worker --loglevel=info --pool=solo
+cd ../frontend && npm install && npm run dev
+```
+
+Truy cập: Frontend http://localhost:3000 · API Docs http://localhost:8000/docs · Qdrant http://localhost:6333/dashboard · MinIO http://localhost:9001
+
+> 💡 Trên Windows có thể dùng `.\start-all.ps1` để mở cả 4 terminal (Infra · Backend · Celery · Frontend) trong Windows Terminal — xem `Start.md`.
+
+</details>
+
+---
+
+## Overview
+
+ClaimFlow is an AI-integrated insurtech application that helps users in Vietnam understand local natural-disaster risk, process insurance documents automatically, and receive tailored policy recommendations — all within a single platform.
+
+It is a personal insurtech product that puts real-world system-design concepts into practice: a LangGraph agent, a RAG pipeline, event-driven architecture, a message queue, WebSockets, and containerization.
+
+---
+
+## Key Features
+
 ### 📄 Document Intelligence
-- Upload nhiều tài liệu: CCCD, hợp đồng bảo hiểm, bằng lái xe, hộ chiếu, giấy đăng ký xe
-- OCR tiếng Việt chính xác cao với Gemini Vision API
-- Trích xuất dữ liệu có cấu trúc từ PDF/PNG/JPG/JPEG
-- **Merge nhiều tài liệu** — loại bỏ field trùng lặp, hợp nhất thành 1 hồ sơ
-- Visual region highlighting — đánh dấu vùng đã trích xuất
-- Chỉnh sửa dữ liệu qua giao diện trực quan
-- Export JSON và Markdown
+- Upload multiple document types: national ID (CCCD), insurance contracts, driver's licenses, passports, and vehicle registrations
+- High-accuracy Vietnamese OCR powered by the Gemini Vision API
+- Structured data extraction from PDF / PNG / JPG / JPEG
+- **Multi-document merge** — deduplicates overlapping fields and consolidates everything into a single profile
+- Visual region highlighting to mark extracted areas
+- Inline editing of extracted data through an intuitive UI
+- Export to JSON and Markdown
 
 ### 📋 Insurance Registration Flow
-- Sau khi OCR xong, nút **"Đăng ký bảo hiểm"** xuất hiện tự động
-- Pre-fill thông tin khách hàng từ dữ liệu OCR (họ tên, ngày sinh, địa chỉ)
-- Auto-detect tỉnh → fetch geo risk → hiển thị điểm rủi ro + đề xuất gói phù hợp
-- 6 loại bảo hiểm: **Sức khỏe · Nhân thọ · Tài sản · Xe cộ · Thiên tai · Thu nhập**
-- Mỗi loại có 3 gói: **Cơ Bản / Nâng Cao / Toàn Diện**
-- Chọn gói → mua → UserPolicy active → có thể submit claim ngay
+- An **"Register insurance"** button appears automatically once OCR completes
+- Customer details are pre-filled from the OCR result (full name, date of birth, address)
+- Auto-detects the province → fetches geo risk → shows the risk score and recommended plans
+- Six insurance categories: **Health · Life · Property · Vehicle · Disaster · Income**
+- Each category offers three tiers: **Basic / Advanced / Comprehensive**
+- Pick a plan → purchase → the `UserPolicy` becomes active → you can file a claim immediately
 
 ### 🌍 Geo Risk Intelligence
-- Nhận diện vùng miền từ địa chỉ (23 tỉnh Bắc / 19 tỉnh Trung / 22 tỉnh Nam)
-- Risk score theo tỉnh/vùng dựa trên dữ liệu thiên tai lịch sử
-- Phát hiện tỉnh rủi ro cao: Quảng Bình, Hà Tĩnh, Nghệ An, Quảng Nam...
-- Cảnh báo thiên tai: Bão, Lũ lụt, Ngập úng, Sạt lở
-- Bản đồ choropleth tương tác (Leaflet) — GeoJSON WGS84 chuẩn
-- Đề xuất gói bảo hiểm phù hợp theo rủi ro địa lý
-- Province detection hỗ trợ tên không dấu và alias (HCM, TP HCM, Saigon, HN)
+- Region detection from an address (23 northern / 19 central / 22 southern provinces)
+- Per-province and per-region risk scoring based on historical disaster data
+- Flags high-risk provinces such as Quảng Bình, Hà Tĩnh, Nghệ An, and Quảng Nam
+- Disaster alerts: typhoons, floods, waterlogging, and landslides
+- Interactive Leaflet choropleth map built on standard WGS84 GeoJSON
+- Insurance recommendations aligned with geographic risk
+- Province detection handles diacritic-free names and aliases (HCM, TP HCM, Saigon, HN)
 
 ### 💬 AI Insurance Chatbot
 - Powered by Google Gemini Pro
-- Tư vấn bảo hiểm 24/7 — cá nhân hóa theo nhu cầu
-- Giải thích thuật ngữ bảo hiểm bằng ngôn ngữ đơn giản
-- Tư vấn theo vùng miền (Bắc/Trung/Nam)
-- Cross-sell gợi ý combo: Nhân thọ + Sức khỏe + Thiên tai
-- Bảo vệ thông tin nhạy cảm — không tiết lộ CCCD, địa chỉ chi tiết, SĐT
-- **Trang chuyên dụng `/chatbot`** — full-page chat với suggestion chips + welcome block + typing indicator + session persist qua localStorage
+- 24/7 insurance advice, personalized to the user's needs
+- Explains insurance terminology in plain language
+- Region-aware guidance (North / Central / South)
+- Cross-sell suggestions for bundles, e.g. Life + Health + Disaster
+- Protects sensitive data — never discloses the CCCD number, detailed address, or phone number
+- **Dedicated `/chatbot` page** — a full-page chat with suggestion chips, a welcome block, a typing indicator, and session persistence via localStorage
 
 ### 🛡️ Insurance Browse & Buy (`/policies`)
-- Trang riêng để xem và mua bảo hiểm — không còn ẩn trong flow OCR
-- **Tab "Gói của tôi":** list tất cả gói với gradient card theo loại, filter Active/Expired/Cancelled, nút Cancel với confirm dialog, badge "còn X ngày" + cảnh báo gần hết hạn
-- **Tab "Mua gói mới":** chọn 1 trong 6 loại → hiện 3 gói Cơ Bản / Nâng Cao / Toàn Diện, đánh dấu loại đã sở hữu để tránh mua trùng
-- Stats banner: tổng số gói active + tổng coverage + tổng premium/năm
+- A standalone page to view and purchase insurance — no longer buried inside the OCR flow
+- **"My plans" tab:** lists every policy with a category-themed gradient card, an Active/Expired/Cancelled filter, a Cancel action guarded by a confirmation dialog, and a "X days left" badge with near-expiry warnings
+- **"Buy a new plan" tab:** pick one of the six categories → see the Basic / Advanced / Comprehensive tiers, with already-owned categories marked to prevent duplicate purchases
+- Stats banner: total active plans + total coverage + total annual premium
 
-### 🏠 Dashboard (Homepage `/dashboard`)
-- Welcome banner gradient với tên + subtitle theo role
-- Snapshot cards theo role: Active Claims / Active Policies / Area Risk Score (user) / Pending Review (reviewer/admin)
-- High-risk alert tự động khi user ở tỉnh `is_high_risk`
-- Recent claims (5 mới nhất) + Quick action tiles (Submit Claim / Upload Doc / Buy Policy / Chatbot / Risk Map + extra theo role)
-- My policies grid (6 gói active đầu tiên với policy number, premium, expiry)
+### 🏠 Dashboard (Home — `/dashboard`)
+- Gradient welcome banner with the user's name and a role-based subtitle
+- Role-based snapshot cards: Active Claims / Active Policies / Area Risk Score (user) / Pending Review (reviewer & admin)
+- Automatic high-risk alert when the user lives in an `is_high_risk` province
+- Recent claims (five latest) plus quick-action tiles (Submit Claim / Upload Doc / Buy Policy / Chatbot / Risk Map, with extras by role)
+- "My policies" grid (first six active plans with policy number, premium, and expiry)
 
 ### 🔍 Claim Processing (AI Agent)
-- LangGraph 4-node workflow: `extract_data` → `check_coverage` → `fraud_detection` → `make_decision`
-- RAG search trong policy documents (Qdrant)
-- Validation: phải có UserPolicy active trước khi submit
-- Real-time status update qua WebSocket
-- Human review interface cho reviewer
+- A four-node LangGraph workflow: `extract_data` → `check_coverage` → `fraud_detection` → `make_decision`
+- RAG search over policy documents (Qdrant)
+- Validation: an active `UserPolicy` is required before a claim can be submitted
+- Real-time status updates over WebSocket
+- Human-review interface for reviewers
 - Analytics dashboard
 
 ### 📊 Analytics Dashboard (`/analytics`)
-- 4 metric cards: Total Claims · Approval Rate · Avg Processing Time · Total Approved Amount
-- Daily bar chart 30 ngày — total + approved layered
-- Region pie chart (SVG thuần) — Bắc / Trung / Nam / unknown
-- Top disaster types + claim types breakdown
-- Backend scope tự động: admin/reviewer thấy all, user thường chỉ thấy claim của mình
+- Four metric cards: Total Claims · Approval Rate · Avg. Processing Time · Total Approved Amount
+- 30-day daily bar chart — total and approved, layered
+- Region pie chart (pure SVG) — North / Central / South / unknown
+- Top disaster types and claim-type breakdowns
+- Automatic backend scoping: admins and reviewers see everything; regular users see only their own claims
 
 ### 🌐 Bilingual UI (EN / VI)
-- Toàn bộ giao diện hỗ trợ 2 ngôn ngữ: Tiếng Việt (mặc định) và English
-- Chuyển ngôn ngữ tức thì — không reload trang
+- The entire interface is available in two languages: Vietnamese (default) and English
+- Instant language switching — no page reload
 - URL-based locale: `/vi/dashboard` · `/en/dashboard`
-- Powered by **next-intl** (Next.js 14 App Router native)
-- Tất cả labels, messages, error texts đều có bản dịch đầy đủ
+- Powered by **next-intl** (native to the Next.js 14 App Router)
+- All labels, messages, and error texts are fully translated
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-| Công nghệ | Mục đích |
+| Technology | Purpose |
 |---|---|
-| Next.js 14 (App Router) | Framework React SSR/SSG |
+| Next.js 14 (App Router) | React SSR/SSG framework |
 | TypeScript | Type safety |
-| Tailwind CSS + shadcn/ui | Styling + Component library |
-| Leaflet + React Leaflet | Bản đồ tương tác rủi ro thiên tai |
-| SVG thuần | Analytics charts (bar / pie / horizontal bars — không cần thư viện ngoài) |
+| Tailwind CSS + shadcn/ui | Styling + component library |
+| Leaflet + React Leaflet | Interactive natural-disaster risk map |
+| Pure SVG | Analytics charts (bar / pie / horizontal bars — no external library) |
 | WebSocket API | Real-time claim status |
 | next-intl | Bilingual UI — EN / VI (URL-based locale) |
 
 ### Backend
-| Công nghệ | Mục đích |
+| Technology | Purpose |
 |---|---|
-| FastAPI | REST API async, tự gen OpenAPI docs |
-| Beanie + Motor | Async ODM cho MongoDB |
-| Celery + Redis | Async task queue + Message broker |
-| slowapi | Rate limiting per endpoint per IP |
-| JWT (HS256) | Authentication — 7 ngày expire, httpOnly cookie |
+| FastAPI | Async REST API with auto-generated OpenAPI docs |
+| Beanie + Motor | Async ODM for MongoDB |
+| Celery + Redis | Async task queue + message broker |
+| slowapi | Per-endpoint, per-IP rate limiting |
+| JWT (HS256) | Authentication — 7-day expiry, httpOnly cookie |
 | bcrypt (cost 12) | Password hashing |
 | Pydantic | Input validation + schemas |
 
 ### AI Layer
-| Công nghệ | Mục đích |
+| Technology | Purpose |
 |---|---|
-| Google Gemini Vision (`gemini-1.5-flash`) | OCR tiếng Việt + Document parsing |
+| Google Gemini Vision (`gemini-1.5-flash`) | Vietnamese OCR + document parsing |
 | Google Gemini Pro (`gemini-1.5-pro`) | LLM chatbot + RAG reasoning |
-| Google text-embedding-004 | Embedding cho vector search |
-| LangGraph | Orchestrate AI agent workflow |
-| LangChain | RAG pipeline, tool integration |
-| Qdrant | Vector database cho RAG |
-| PyMuPDF | Extract text từ PDF nhiều trang |
+| Google text-embedding-004 | Embeddings for vector search |
+| LangGraph | Orchestrates the AI agent workflow |
+| LangChain | RAG pipeline + tool integration |
+| Qdrant | Vector database for RAG |
+| PyMuPDF | Text extraction from multi-page PDFs |
 
 ### Infrastructure
-| Công nghệ | Mục đích |
+| Technology | Purpose |
 |---|---|
 | MongoDB 7.0 | Primary database (document store) |
 | Redis | Cache + Celery broker + Pub/Sub |
@@ -132,7 +199,7 @@ Dự án là một sản phẩm insurtech cá nhân, tích hợp các khái ni�
 
 ---
 
-## Kiến trúc hệ thống
+## System Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -175,92 +242,92 @@ Submit claim
       │
       ▼
 [Node 1] extract_data
-  Gemini Vision OCR → parse structured data từ text
-  Xác định province, disaster_type, amount
+  Gemini Vision OCR → parse structured data from text
+  Determine province, disaster_type, amount
       │
       ▼
 [Node 2] check_coverage
-  RAG search Qdrant → kiểm tra điều khoản bảo hiểm
+  RAG search in Qdrant → verify policy terms
   Covered? Coverage limit? → is_covered + coverage_limit
       │
       ▼
 [Node 3] fraud_detection
   Amount anomaly? Duplicate claim? Provider whitelist?
-  Fraud score: 0–100 + fraud_flags list
+  Fraud score: 0–100 + list of fraud_flags
       │
       ▼
 [Node 4] make_decision
-  score < 30 + covered   → APPROVE
+  score < 30 and covered → APPROVE
   not covered            → REJECT + reason
   score > 70             → MANUAL REVIEW
-  thiếu thông tin        → NEED MORE INFO
+  missing information     → NEED MORE INFO
       │
       ▼
-  WebSocket push → Client real-time
+  WebSocket push → client in real time
 ```
 
-### Luồng đăng ký bảo hiểm (Insurance Registration)
+### Insurance Registration Flow
 
 ```
-User upload CCCD / tài liệu
+User uploads CCCD / document
       │
       ▼
-OCR done → extracted_data có địa chỉ
+OCR done → extracted_data includes an address
       │
       ▼
-Nút "Đăng ký bảo hiểm" xuất hiện
+"Register insurance" button appears
       │
       ▼
-InsuranceRegistrationModal mở
-  ├── Pre-fill thông tin từ structured_data
-  ├── Auto-detect tỉnh từ place_of_origin / place_of_residence
-  └── Fetch GET /geo-risk/province/{name}
+InsuranceRegistrationModal opens
+  ├── Pre-fills details from structured_data
+  ├── Auto-detects province from place_of_origin / place_of_residence
+  └── Fetches GET /geo-risk/province/{name}
       │
       ▼
-Hiển thị risk score + recommended packages
-  ├── Sức khỏe (health)   — 3 gói: Cơ Bản / Nâng Cao / Toàn Diện
-  ├── Nhân thọ (life)
-  ├── Tài sản (property)
-  ├── Xe cộ (vehicle)
-  ├── Thiên tai (disaster) ← ưu tiên cao nếu tỉnh rủi ro cao
-  └── Thu nhập (income)
+Shows risk score + recommended packages
+  ├── Health   — 3 tiers: Basic / Advanced / Comprehensive
+  ├── Life
+  ├── Property
+  ├── Vehicle
+  ├── Disaster ← prioritized for high-risk provinces
+  └── Income
       │
       ▼
-User chọn gói → POST /policies/purchase
+User picks a plan → POST /policies/purchase
       │
       ▼
-UserPolicy active → có thể submit claim ngay
+UserPolicy active → can file a claim immediately
 ```
 
 ### Geo Intelligence Flow
 
 ```
-User nhập địa chỉ
+User enters an address
       │
       ▼
-Geo Service nhận diện tỉnh/vùng miền
+Geo Service detects the province / region
   (_normalize_vn: strip diacritics + alias matching)
       │
       ▼
 Risk Score Engine
-  ├── Dữ liệu thiên tai lịch sử
-  ├── Phân loại rủi ro: Bão / Lũ / Sạt lở / Ngập úng
-  └── Score theo tỉnh (0–100)
+  ├── Historical disaster data
+  ├── Risk classification: Typhoon / Flood / Landslide / Waterlogging
+  └── Per-province score (0–100)
       │
       ▼
 Insurance Recommendation AI
-  ├── 95% risk → Bảo hiểm bão bắt buộc
-  ├── 90% risk → Bảo hiểm ngập nước
-  └── Combo suggestion: Nhân thọ + Sức khỏe + Thiên tai
+  ├── 95% risk → mandatory typhoon insurance
+  ├── 90% risk → flood insurance
+  └── Bundle suggestion: Life + Health + Disaster
       │
       ▼
-Hiển thị bản đồ Leaflet choropleth + Báo cáo rủi ro
-(GeoJSON WGS84 từ static file vietnam-provinces.geojson)
+Renders a Leaflet choropleth map + a risk report
+(WGS84 GeoJSON from the static file vietnam-provinces.geojson)
 ```
 
 ---
 
-## Cấu trúc thư mục
+## Project Structure
 
 ```
 claimflow/
@@ -289,23 +356,20 @@ claimflow/
 │       │   ├── geo_risk.py         # Province risk data
 │       │   ├── chat_session.py
 │       │   ├── policy.py           # RAG policy documents
-│       │   ├── user_policy.py      # User insurance registrations (NEW)
+│       │   ├── user_policy.py      # User insurance registrations
 │       │   └── audit_log.py
 │       ├── schemas/
 │       ├── services/
 │       │   ├── ai/
 │       │   │   ├── agent.py        # LangGraph workflow
-│       │   │   ├── nodes.py        # 4 agent nodes
 │       │   │   ├── rag.py          # RAG pipeline
 │       │   │   ├── ocr.py          # Gemini Vision OCR
 │       │   │   ├── merger.py       # Document merge logic
 │       │   │   └── chatbot.py      # Gemini Pro chatbot
 │       │   ├── geo/
-│       │   │   ├── province_data.py   # Static risk data 64 tỉnh
-│       │   │   └── risk_engine.py     # Risk scoring + province detection
-│       │   ├── province_mapper.py     # province → region lookup
-│       │   ├── storage.py
-│       │   └── notification.py
+│       │   │   └── risk_engine.py  # Risk scoring + province detection
+│       │   ├── province_mapper.py  # province → region lookup
+│       │   └── storage.py
 │       ├── tasks/
 │       │   └── document_processor.py
 │       └── main.py
@@ -315,138 +379,103 @@ claimflow/
 │       │   └── [locale]/           # next-intl locale segment
 │       │       ├── (auth)/login · register
 │       │       └── (app)/          # group layout with Sidebar
-│       │           ├── dashboard/    # Homepage — Welcome + snapshots + recent claims + quick actions
-│       │           │   ├── page.tsx
-│       │           │   └── DashboardClient.tsx
-│       │           ├── documents/    # Upload + OCR UI
-│       │           │   ├── page.tsx
-│       │           │   └── DocumentsClient.tsx
-│       │           ├── risk-map/     # Leaflet choropleth
-│       │           │   ├── page.tsx
-│       │           │   └── RiskMapClient.tsx
-│       │           ├── claims/       # Claim list + detail modal + submit form
-│       │           │   ├── page.tsx
-│       │           │   └── ClaimsClient.tsx
-│       │           ├── policies/     # NEW: Browse + Buy insurance + My policies
-│       │           │   ├── page.tsx
-│       │           │   └── PoliciesClient.tsx
-│       │           ├── analytics/    # Charts dashboard
-│       │           │   ├── page.tsx
-│       │           │   └── AnalyticsClient.tsx
-│       │           ├── chatbot/      # Full-page AI advisor (replaces floating widget)
-│       │           │   ├── page.tsx
-│       │           │   └── ChatbotClient.tsx
-│       │           ├── reviewer/     # Reviewer queue + personal stats
-│       │           │   ├── page.tsx
-│       │           │   └── ReviewerClient.tsx
-│       │           └── admin/        # 5 tabs: Users · Analytics · Policies · Audit Logs · Health
-│       │               ├── page.tsx
-│       │               └── AdminClient.tsx
+│       │           ├── dashboard/  # Home — welcome + snapshots + recent claims + quick actions
+│       │           ├── documents/  # Upload + OCR UI
+│       │           ├── risk-map/   # Leaflet choropleth
+│       │           ├── claims/     # Claim list + detail modal + submit wizard
+│       │           ├── policies/   # Browse + buy insurance + my policies
+│       │           ├── analytics/  # Charts dashboard
+│       │           ├── chatbot/    # Full-page AI advisor
+│       │           ├── reviewer/   # Reviewer queue + personal stats
+│       │           └── admin/      # 5 tabs: Users · Analytics · Policies · Audit Logs · Health
 │       ├── components/
-│       │   ├── documents/
-│       │   │   ├── InsuranceRegistrationModal.tsx   # Pre-fill flow từ OCR
-│       │   │   └── (upload, merge, highlight...)
-│       │   ├── risk-map/
-│       │   │   └── LeafletMap.tsx  # Choropleth map
-│       │   ├── layout/
-│       │   │   ├── Sidebar.tsx              # Role-based nav + user info + logout
-│       │   │   └── LanguageSwitcher.tsx     # EN ↔ VI toggle
-│       │   └── ui/                 # shadcn components
+│       │   ├── documents/          # OCR upload, merge, bbox highlight, registration modal
+│       │   ├── risk-map/           # LeafletMap (choropleth)
+│       │   ├── layout/             # Sidebar (role-based) + LanguageSwitcher
+│       │   └── ui/                 # shadcn components (incl. PasswordInput)
 │       ├── messages/
 │       │   ├── vi.json             # Vietnamese strings (default)
 │       │   └── en.json             # English strings
 │       ├── i18n.ts                 # next-intl config
 │       ├── middleware.ts           # locale detection + routing
-│       ├── lib/
-│       │   ├── api.ts
-│       │   └── websocket.ts
+│       ├── lib/                    # api.ts, provinces.ts, utils.ts
 │       └── types/
-├── scripts/
-│   └── build_vn_geojson.py        # Convert GeoJSON UTM48N → WGS84 (pyproj)
-├── sample_data/
-│   ├── policies/                   # Policy docs cho RAG
-│   ├── province_risk.json          # Risk data 64 tỉnh
-│   └── generate_sample_pdfs.py
-├── public/
-│   └── vietnam-provinces.geojson  # 72KB static WGS84 GeoJSON (frontend)
+├── backend/scripts/
+│   └── build_vn_geojson.py         # Convert GeoJSON UTM48N → WGS84 (pyproj)
+├── frontend/public/
+│   └── vietnam-provinces.geojson   # ~72 KB static WGS84 GeoJSON
 ├── docker-compose.yml
 ├── .env.example
-├── CLAUDE.md
-├── README.md
-├── TASKS.md
-├── SCHEMA.md
-├── ARCHITECTURE.md
-├── CONVENTIONS.md
-├── API.md
-└── ERRORS.md
+├── start-all.ps1                   # One-command launcher (Windows Terminal)
+├── CLAUDE.md · README.md · TASKS.md · SCHEMA.md · ARCHITECTURE.md · API.md
 ```
 
 ---
 
-## Loại bảo hiểm
+## Insurance Categories
 
-ClaimFlow hỗ trợ 6 nhóm bảo hiểm, mỗi nhóm có 3 gói (Cơ Bản / Nâng Cao / Toàn Diện):
+ClaimFlow supports six insurance groups, each with three tiers (Basic / Advanced / Comprehensive):
 
-| Loại | Mã | Mô tả |
+| Category | Code | Description |
 |---|---|---|
-| **Sức khỏe** | `health` | Khám chữa bệnh, nội trú, ngoại trú, phẫu thuật |
-| **Nhân thọ** | `life` | Bảo vệ thu nhập gia đình, tử vong, thương tật |
-| **Tài sản** | `property` | Nhà ở, đồ dùng, thiệt hại do thiên tai hoặc trộm cắp |
-| **Xe cộ** | `vehicle` | Tai nạn xe, va chạm, trộm cắp phương tiện |
-| **Thiên tai** | `disaster` | Bão, lũ lụt, sạt lở, ngập úng — ưu tiên vùng rủi ro cao |
-| **Thu nhập** | `income` | Mất việc làm, tai nạn lao động, an sinh xã hội |
+| **Health** | `health` | Medical care, inpatient, outpatient, surgery |
+| **Life** | `life` | Family income protection, death, disability |
+| **Property** | `property` | Home and belongings, damage from disasters or theft |
+| **Vehicle** | `vehicle` | Vehicle accidents, collisions, theft |
+| **Disaster** | `disaster` | Typhoons, floods, landslides, waterlogging — prioritized in high-risk regions |
+| **Income** | `income` | Job loss, workplace accidents, social security |
 
 ---
 
-## Phân quyền (Authorization)
+## Authorization
 
-ClaimFlow có 3 roles với quyền hạn khác nhau. Sidebar tự động filter các trang theo role:
+ClaimFlow defines three roles with distinct permissions. The sidebar filters pages automatically by role:
 
-| Trang | user | reviewer | admin |
+| Page | user | reviewer | admin |
 |---|:---:|:---:|:---:|
 | Dashboard | ✅ | ✅ | ✅ |
 | Documents | ✅ | ✅ | ✅ |
 | Risk Map | ✅ | ✅ | ✅ |
 | Claims | ✅ | ✅ | ✅ |
-| **Policies (Bảo hiểm)** | ✅ | ✅ | ✅ |
+| **Policies** | ✅ | ✅ | ✅ |
 | Analytics | ✅ | ✅ | ✅ |
 | Chatbot | ✅ | ✅ | ✅ |
 | Reviewer | ❌ | ✅ | ✅ |
 | Admin | ❌ | ❌ | ✅ |
 
-**Defense-in-depth:** Sidebar ẩn link + page tự gọi `/auth/me` redirect nếu sai role + backend dependency `require_admin`/`require_reviewer` trả 403.
+**Defense in depth:** the sidebar hides links, each page calls `/auth/me` and redirects on a role mismatch, and the backend dependencies `require_admin` / `require_reviewer` return 403.
 
-### Admin Dashboard (`/admin`) — 5 tabs
-- **Users tab:** Bảng tất cả users, filter role/status, dropdown đổi role inline, nút Activate/Deactivate
-- **Analytics tab:** Full system metrics — total users, claims, approval rate, fraud rate, top high-risk provinces, reviewer performance table, daily bar chart, region breakdown
-- **Policies tab:** Upload policy mới (auto-trigger Celery ingest vào Qdrant), grid card hiển thị chunk count + last ingested, nút Delete (xóa cả vectors)
-- **Audit Logs tab:** Timeline mọi action với filter theo action type + target type + from_date
-- **System Health tab:** Card status realtime của MongoDB, Redis, Qdrant, Celery — hiển thị latency_ms + workers + collections
+### Admin Dashboard (`/admin`) — five tabs
+- **Users:** a table of all users, filterable by role/status, with an inline role dropdown and Activate/Deactivate buttons
+- **Analytics:** full system metrics — total users, claims, approval rate, fraud rate, top high-risk provinces, a reviewer-performance table, a daily bar chart, and a region breakdown
+- **Policies:** upload a new policy (auto-triggers a Celery job that ingests it into Qdrant), a card grid showing chunk count and last-ingested time, and a Delete button (which also removes the vectors)
+- **Audit Logs:** a timeline of every action, filterable by action type, target type, and start date
+- **System Health:** real-time status cards for MongoDB, Redis, Qdrant, and Celery — showing latency (ms), workers, and collections
 
 ### Reviewer Dashboard (`/reviewer`)
-- **Queue panel:** claims `manual_review` sort oldest first, filter province/disaster_type/min fraud score, badge "đã chờ X phút/giờ"
-- **Detail panel:** AI reasoning đầy đủ + fraud gauge progress bar + fraud flags list + attached documents
-- **Decision:** Approve hoặc Reject với note bắt buộc + amount_approved editable
-- **Stats banner:** Pending in queue · Reviewed today · Reviewed this week · Avg review time · Override rate
+- **Queue panel:** `manual_review` claims sorted oldest-first, filterable by province / disaster type / minimum fraud score, with a "waiting X minutes/hours" badge
+- **Detail panel:** the full AI reasoning, a fraud-gauge progress bar, a fraud-flags list, and attached documents
+- **Decision:** Approve or Reject with a mandatory note and an editable approved amount
+- **Stats banner:** Pending in queue · Reviewed today · Reviewed this week · Avg. review time · Override rate
 
 ---
 
-## Bảo mật
+## Security
 
 ### Authentication
-- JWT HS256, expire 7 ngày (10080 phút)
-- Password: bcrypt cost factor 12, min 8 ký tự, phải có chữ hoa + chữ thường + số
-- Token lưu **httpOnly cookie** (không localStorage — tránh XSS)
+- JWT HS256, 7-day expiry (10,080 minutes)
+- Passwords: bcrypt with cost factor 12; minimum 8 characters including an uppercase letter, a lowercase letter, and a digit
+- Tokens are stored in an **httpOnly cookie** (never localStorage — to prevent XSS)
 
 ### CSRF Protection
-httpOnly cookie ngăn XSS nhưng tạo CSRF vulnerability. Giải pháp Double Submit Cookie:
-- Login set 2 cookie: `access_token` (httpOnly) + `csrf_token` (non-httpOnly)
-- Frontend đọc `csrf_token` và attach vào header `X-CSRF-Token`
-- Middleware verify header == cookie trước mọi mutating request
+An httpOnly cookie prevents XSS but introduces a CSRF risk. The mitigation is the Double Submit Cookie pattern:
+- Login sets two cookies: `access_token` (httpOnly) and `csrf_token` (non-httpOnly)
+- The frontend reads `csrf_token` and attaches it as the `X-CSRF-Token` header
+- Middleware verifies that the header matches the cookie before every mutating request
 
 ### CORS Policy
 ```
-Allowed Origins: http://localhost:3000, http://localhost:5173, production URL
+Allowed origins: http://localhost:3000, http://localhost:5173, production URL
 Methods: GET, POST, PUT, DELETE, PATCH
 Headers: Content-Type, Authorization, X-CSRF-Token
 Credentials: true
@@ -454,57 +483,59 @@ Credentials: true
 
 ### Rate Limiting (per IP)
 ```
-POST /auth/login        → 5/phút   (chống brute force)
-POST /documents/upload  → 10/phút  (OCR nặng)
-POST /chatbot/message   → 30/phút  (chat bình thường)
+POST /auth/login        → 5/min    (brute-force protection)
+POST /documents/upload  → 10/min   (OCR is heavy)
+POST /chatbot/message   → 30/min   (normal chat)
 ```
 
 ### Data Protection
-- Không tiết lộ CCCD, địa chỉ chi tiết, SĐT trong chatbot response
-- Prompt injection defense — block "ignore previous instructions" và tương tự
-- Chỉ dùng vùng miền (Bắc/Trung/Nam) để tư vấn
-- Input validation toàn bộ qua Pydantic schemas + sanitize function
-- Request ID header (`X-Request-ID`) cho mọi response — trace bug dễ hơn
+- Never discloses the CCCD number, detailed address, or phone number in chatbot responses
+- Prompt-injection defense — blocks "ignore previous instructions" and similar patterns
+- Uses only the region (North / Central / South) for advisory purposes
+- Validates all input through Pydantic schemas plus a sanitization function
+- Adds a Request ID header (`X-Request-ID`) to every response for easier debugging
 
 ### OCR Privacy
-- File hash (MD5) cache OCR results — cùng file không gọi Gemini API 2 lần
-- Confidence threshold 0.7 — field dưới ngưỡng được flag "Cần xác nhận"
-- Không lưu raw image vào DB — chỉ lưu extracted text và S3 key
+- Caches OCR results by file hash (MD5) — the same file never hits the Gemini API twice
+- A confidence threshold of 0.7 flags below-threshold fields as "Needs review"
+- Never stores the raw image in the database — only the extracted text and the S3 key
 
 ---
 
-## Cài đặt & Chạy local
+## Getting Started (local)
 
-### Yêu cầu
+### Requirements
 - Docker Desktop, Python 3.11+, Node.js 18+
 
-### 1. Clone và cấu hình
+### 1. Clone and configure
 ```bash
-git clone https://github.com/your-username/claimflow.git
-cd claimflow
+git clone https://github.com/Ho-Duy-Vu/vurance.git
+cd vurance
 cp .env.example .env
-# Điền GEMINI_API_KEY vào .env
+# Set GEMINI_API_KEY in .env
 ```
 
-### 2. Chạy với Docker Compose
+### 2. Run with Docker Compose
 ```bash
 docker compose up -d
 cd backend && python scripts/seed.py
 cd backend && python scripts/ingest_policies.py
 ```
 
-### 3. Chạy riêng lẻ
+### 3. Run each service individually
 ```bash
 # Backend
 cd backend && pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-celery -A app.tasks worker --loglevel=info
+celery -A app.tasks worker --loglevel=info --pool=solo   # --pool=solo required on Windows
 
 # Frontend
 cd frontend && npm install && npm run dev
 ```
 
-### 4. Build GeoJSON (nếu cần rebuild)
+> 💡 **On Windows**, run `.\start-all.ps1` to open all four terminals (Infra · Backend · Celery · Frontend) as tabs in Windows Terminal in one command. See `Start.md` for details.
+
+### 4. Rebuild the GeoJSON (only if needed)
 ```bash
 cd backend
 pip install pyproj
@@ -512,7 +543,7 @@ python scripts/build_vn_geojson.py
 # Output: ../frontend/public/vietnam-provinces.geojson
 ```
 
-### Truy cập
+### Access
 - Frontend: http://localhost:3000
 - API Docs: http://localhost:8000/docs
 - Qdrant: http://localhost:6333/dashboard
@@ -524,9 +555,9 @@ python scripts/build_vn_geojson.py
 
 ```env
 GEMINI_API_KEY=AIza...
-# Local MongoDB (không qua docker, không auth):
+# Local MongoDB (no Docker, no auth):
 MONGODB_URL=mongodb://localhost:27017
-# Docker mongo trong docker-compose dùng port 27018 và auth admin:admin@
+# The Docker mongo in docker-compose uses port 27018 with admin:admin auth:
 # MONGODB_URL=mongodb://admin:admin@localhost:27018
 MONGODB_DB_NAME=claimflow_db
 REDIS_URL=redis://localhost:6379
@@ -542,30 +573,30 @@ RESEND_API_KEY=re_...
 
 ---
 
-## System Design Concepts Áp dụng
+## System-Design Concepts Applied
 
-| Concept | Áp dụng trong ClaimFlow |
+| Concept | How it's used in ClaimFlow |
 |---|---|
-| Message Queue | Redis + Celery xử lý OCR job async |
-| Pub/Sub | Redis Pub/Sub → WebSocket push real-time |
-| Event-Driven | Submit doc → event → worker → AI → notify |
-| RAG | Qdrant vector search policy cho claim check |
-| LangGraph Agent | 4-node stateful workflow, conditional routing, auto-retry |
-| API Gateway | FastAPI: auth + rate limit + CSRF + routing tập trung |
-| Embedded Documents | DocumentEmbed trong Claim, ChatMessage trong Session |
-| Database Indexing | Index user_id, status, province, file_hash, created_at |
-| Containerization | Docker Compose 5 services |
-| CQRS (nhẹ) | Write: Celery worker / Read: API GET tách biệt |
-| Geo Intelligence | Province risk scoring + Leaflet map visualization |
-| Data Privacy | PII protection, prompt injection defense, CSRF protection |
-| Caching | OCR result cache bằng MD5 file hash |
-| Rate Limiting | slowapi per endpoint per IP |
-| Distributed Tracing | Request ID header trên mọi response |
-| Coordinate Conversion | pyproj UTM48N → WGS84 cho GeoJSON chuẩn |
+| Message queue | Redis + Celery process OCR jobs asynchronously |
+| Pub/Sub | Redis Pub/Sub → WebSocket real-time push |
+| Event-driven | Submit doc → event → worker → AI → notify |
+| RAG | Qdrant vector search over policies for claim checks |
+| LangGraph agent | A four-node stateful workflow with conditional routing and auto-retry |
+| API gateway | FastAPI centralizes auth, rate limiting, CSRF, and routing |
+| Embedded documents | DocumentEmbed inside Claim, ChatMessage inside Session |
+| Database indexing | Indexes on user_id, status, province, file_hash, created_at |
+| Containerization | Docker Compose across five services |
+| Lightweight CQRS | Writes via the Celery worker; reads via API GET — kept separate |
+| Geo intelligence | Province risk scoring + Leaflet map visualization |
+| Data privacy | PII protection, prompt-injection defense, CSRF protection |
+| Caching | OCR results cached by MD5 file hash |
+| Rate limiting | slowapi, per endpoint and per IP |
+| Distributed tracing | A Request ID header on every response |
+| Coordinate conversion | pyproj UTM48N → WGS84 for standards-compliant GeoJSON |
 
 ---
 
-## Tác giả
+## Author
 
 **Hồ Duy Vũ** — AI Engineer
 duyvu11092004@gmail.com
