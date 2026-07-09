@@ -1203,7 +1203,9 @@ async def log_action(actor: User, action: str, target_type: str, target_id: str,
 
 ---
 
-### TASK-030 `[BE]` Invoice / Policy PDF generation
+### TASK-030 `[BE]` Invoice / Policy PDF generation ✅
+
+**Status:** ✅ Done — `app/services/pdf_generator.py` có `generate_policy_contract()` + `generate_claim_invoice()` (reportlab, bilingual header, font VN); route `GET /policies/{id}/contract.pdf` và `GET /claims/{id}/invoice.pdf` (chỉ approved) với cache MinIO theo version key.
 
 **Mô tả:** Generate PDF cho 2 use case:
 - Hợp đồng bảo hiểm sau khi mua (download từ PolicyDetailModal — TASK-036)
