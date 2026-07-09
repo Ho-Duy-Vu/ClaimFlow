@@ -53,8 +53,8 @@ Dự án là một sản phẩm insurtech cá nhân, tích hợp các khái ni�
 ## Cài đặt & Chạy local
 
 ```bash
-git clone https://github.com/Ho-Duy-Vu/vurance.git
-cd vurance
+git clone https://github.com/Ho-Duy-Vu/ClaimFlow.git
+cd ClaimFlow
 cp .env.example .env          # điền GEMINI_API_KEY
 docker compose up -d
 cd backend && pip install -r requirements.txt && python scripts/seed.py && python scripts/ingest_policies.py
@@ -509,8 +509,8 @@ POST /chatbot/message   → 30/min   (normal chat)
 
 ### 1. Clone and configure
 ```bash
-git clone https://github.com/Ho-Duy-Vu/vurance.git
-cd vurance
+git clone https://github.com/Ho-Duy-Vu/ClaimFlow.git
+cd ClaimFlow
 cp .env.example .env
 # Set GEMINI_API_KEY in .env
 ```
