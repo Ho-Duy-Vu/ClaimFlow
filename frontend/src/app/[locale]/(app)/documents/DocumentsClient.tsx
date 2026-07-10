@@ -187,6 +187,15 @@ export function DocumentsClient() {
     try {
       const r = await api.get<DocumentRecord[]>('/documents');
       setDocs([...r.data].reverse());   // newest first so new uploads appear on top
+      // Keep undetected (pending) docs visible in the staging queue (survives reload)
+      const pending = r.data.filter(d => d.processing_status === 'pending');
+      setUploadQueue(prev => {
+        const seen = new Set(prev.map(i => i.docId).filter(Boolean));
+        const add: QueueItem[] = pending
+          .filter(d => !seen.has(d.document_id))
+          .map(d => ({ key: `doc-${d.document_id}`, name: d.file_name, status: 'done', docId: d.document_id }));
+        return add.length ? [...prev, ...add] : prev;
+      });
     } catch { /* silent */ } finally { setLoadingList(false); }
   }, []);
 
@@ -278,6 +287,28 @@ export function DocumentsClient() {
     if (failCount > 0) toast.error(t('uploadFailed', { count: failCount }));
     // NOTE: do NOT auto-clear the queue — user removes items via the ✕ button.
   }, [docType, loadDocs, selectDoc, t, toast]);
+
+  // Confirm detection for an uploaded (pending) queue item → run OCR, then it
+  // leaves the staging queue and shows up in the Documents list (processing → done).
+  const detectQueued = useCallback(async (key: string, docId: string) => {
+    try {
+      await api.post(`/documents/${docId}/reprocess`);
+    } catch {
+      toast.error(t('ocrFailed'));
+      return;
+    }
+    setUploadQueue(q => q.filter(item => item.key !== key));
+    if (selectedId !== docId) {
+      selectDoc(docId);            // fully loads OCR + preview + polling
+    } else {
+      startPolling(docId);
+      try {
+        const r = await api.get<OCRResult>(`/documents/${docId}/ocr`);
+        setOcr(r.data);
+      } catch { /* ignore */ }
+    }
+    loadDocs();
+  }, [loadDocs, selectDoc, selectedId, startPolling, t, toast]);
 
   // Remove one item from the upload queue; if it was uploaded, delete the doc too.
   const removeQueueItem = useCallback(async (key: string, docId?: string) => {
@@ -433,6 +464,10 @@ export function DocumentsClient() {
     }
   };
 
+  // Documents list shows only detected docs — a freshly-uploaded (pending) doc
+  // stays in the upload staging area until the user confirms detection.
+  const detectedDocs = docs.filter(d => d.processing_status !== 'pending');
+
   return (
     <>
     <div className="flex gap-4" style={{ minHeight: 560 }}>
@@ -476,19 +511,38 @@ export function DocumentsClient() {
           {/* Upload queue — accumulates; remove an item (and its uploaded doc) with ✕ */}
           {uploadQueue.length > 0 && (
             <div className="mt-3">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
                 <p className="text-xs font-medium text-gray-500">{t('uploadedList')} ({uploadQueue.length})</p>
-                <button onClick={() => setUploadQueue([])} className="text-xs text-gray-400 hover:text-gray-600">
-                  {t('clearList')}
-                </button>
+                <div className="flex items-center gap-2">
+                  {uploadQueue.some(i => i.status === 'done' && i.docId) && (
+                    <button
+                      onClick={() => uploadQueue.filter(i => i.status === 'done' && i.docId).forEach(i => detectQueued(i.key, i.docId!))}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                    >
+                      <Sparkles size={11} /> {t('detectAll')}
+                    </button>
+                  )}
+                  <button onClick={() => setUploadQueue([])} className="text-xs text-gray-400 hover:text-gray-600">
+                    {t('clearList')}
+                  </button>
+                </div>
               </div>
               <ul className="space-y-1">
                 {uploadQueue.map(item => (
-                  <li key={item.key} className="flex items-center gap-2 text-xs group">
+                  <li key={item.key} className="flex items-center gap-2 text-xs">
                     {item.status === 'uploading' && <Loader2 size={11} className="animate-spin text-blue-500 shrink-0" />}
                     {item.status === 'done' && <CheckCircle size={11} className="text-green-500 shrink-0" />}
                     {item.status === 'error' && <AlertTriangle size={11} className="text-red-500 shrink-0" />}
                     <span className="truncate text-gray-600 flex-1">{item.name}</span>
+                    {item.status === 'done' && item.docId && (
+                      <button
+                        onClick={() => detectQueued(item.key, item.docId!)}
+                        title={t('detectBtn')}
+                        className="shrink-0 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        <Sparkles size={11} /> {t('detectShort')}
+                      </button>
+                    )}
                     {item.status !== 'uploading' && (
                       <button
                         onClick={() => removeQueueItem(item.key, item.docId)}
@@ -509,7 +563,7 @@ export function DocumentsClient() {
         <div className="bg-white rounded-xl shadow-sm border flex-1 overflow-hidden flex flex-col">
           <div className="p-3 border-b flex items-center justify-between">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              {t('listTitle')} ({docs.length})
+              {t('listTitle')} ({detectedDocs.length})
             </p>
             {mergeIds.size > 0 && (
               <button onClick={() => setMergeIds(new Set())} className="text-xs text-gray-400 hover:text-gray-600">
@@ -520,14 +574,14 @@ export function DocumentsClient() {
 
           {loadingList ? (
             <div className="flex justify-center py-6"><Loader2 className="animate-spin text-gray-400" size={20} /></div>
-          ) : docs.length === 0 ? (
+          ) : detectedDocs.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-gray-400">
               <FileText size={28} className="opacity-30 mb-2" />
               <p className="text-xs">{t('empty')}</p>
             </div>
           ) : (
             <ul className="overflow-y-auto flex-1">
-              {docs.map(doc => (
+              {detectedDocs.map(doc => (
                 <li key={doc.document_id} className={`flex items-stretch border-b last:border-b-0 ${selectedId === doc.document_id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                   {/* Merge checkbox */}
                   <button

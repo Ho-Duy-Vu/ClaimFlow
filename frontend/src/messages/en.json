@@ -111,6 +111,8 @@
     "uploadedList": "Just uploaded",
     "clearList": "Clear all",
     "removeFromList": "Remove from list",
+    "detectAll": "Detect all",
+    "detectShort": "Detect",
     "noData": "No extracted data",
     "multiHint": "Multiple files supported",
     "registerInsuranceBtn": "Register Insurance",

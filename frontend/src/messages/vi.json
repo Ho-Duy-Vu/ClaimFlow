@@ -111,6 +111,8 @@
     "uploadedList": "File vừa tải lên",
     "clearList": "Xoá hết",
     "removeFromList": "Bỏ khỏi danh sách",
+    "detectAll": "Nhận diện tất cả",
+    "detectShort": "Nhận diện",
     "noData": "Không có dữ liệu trích xuất",
     "multiHint": "Hỗ trợ nhiều file cùng lúc",
     "registerInsuranceBtn": "Đăng ký bảo hiểm",
