@@ -74,7 +74,7 @@ interface BundleResult {
   inconsistencies: Inconsistency[];
   missing_for_insurance: string[];
 }
-interface QueueItem { key: string; name: string; status: 'uploading' | 'done' | 'error'; error?: string }
+interface QueueItem { key: string; name: string; status: 'uploading' | 'done' | 'error'; error?: string; docId?: string }
 
 function fieldValue(v: OCRField | string | number): string {
   if (typeof v === 'object' && v !== null && 'value' in v) return String(v.value ?? '');
@@ -186,7 +186,7 @@ export function DocumentsClient() {
   const loadDocs = useCallback(async () => {
     try {
       const r = await api.get<DocumentRecord[]>('/documents');
-      setDocs(r.data);
+      setDocs([...r.data].reverse());   // newest first so new uploads appear on top
     } catch { /* silent */ } finally { setLoadingList(false); }
   }, []);
 
@@ -242,14 +242,17 @@ export function DocumentsClient() {
     if (skipped > 0) setUploadError(t('unsupportedType'));
     if (!valid.length) return;
 
-    const queue: QueueItem[] = valid.map((f, i) => ({ key: `${Date.now()}-${i}`, name: f.name, status: 'uploading' }));
-    setUploadQueue(queue);
+    const batch = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const queue: QueueItem[] = valid.map((f, i) => ({ key: `${batch}-${i}`, name: f.name, status: 'uploading' }));
+    // Accumulate — keep earlier uploads visible instead of replacing them
+    setUploadQueue(prev => [...prev, ...queue]);
     setUploading(true);
 
     let lastId: string | null = null;
     let okCount = 0;
     let failCount = 0;
     for (let i = 0; i < valid.length; i++) {
+      const key = queue[i].key;
       try {
         const form = new FormData();
         form.append('file', valid[i]);
@@ -260,11 +263,11 @@ export function DocumentsClient() {
         });
         lastId = r.data.document_id;
         okCount++;
-        setUploadQueue(q => q.map((item, idx) => idx === i ? { ...item, status: 'done' } : item));
+        setUploadQueue(q => q.map(item => item.key === key ? { ...item, status: 'done', docId: r.data.document_id } : item));
       } catch (err: unknown) {
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Upload thất bại';
         failCount++;
-        setUploadQueue(q => q.map((item, idx) => idx === i ? { ...item, status: 'error', error: msg } : item));
+        setUploadQueue(q => q.map(item => item.key === key ? { ...item, status: 'error', error: msg } : item));
       }
     }
 
@@ -273,8 +276,21 @@ export function DocumentsClient() {
     setUploading(false);
     if (okCount > 0) toast.success(t('uploadSuccess', { count: okCount }));
     if (failCount > 0) toast.error(t('uploadFailed', { count: failCount }));
-    setTimeout(() => setUploadQueue([]), 4000);
+    // NOTE: do NOT auto-clear the queue — user removes items via the ✕ button.
   }, [docType, loadDocs, selectDoc, t, toast]);
+
+  // Remove one item from the upload queue; if it was uploaded, delete the doc too.
+  const removeQueueItem = useCallback(async (key: string, docId?: string) => {
+    setUploadQueue(q => q.filter(item => item.key !== key));
+    if (docId) {
+      try {
+        await api.delete(`/documents/${docId}`);
+        if (selectedId === docId) { setSelectedId(null); setOcr(null); setDocImageUrl(null); }
+        setMergeIds(prev => { const n = new Set(prev); n.delete(docId); return n; });
+        await loadDocs();
+      } catch { /* ignore */ }
+    }
+  }, [loadDocs, selectedId]);
 
   const deleteDoc = useCallback(async (id: string) => {
     setDeletingId(id);
@@ -457,18 +473,35 @@ export function DocumentsClient() {
           />
           {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
 
-          {/* Upload queue */}
+          {/* Upload queue — accumulates; remove an item (and its uploaded doc) with ✕ */}
           {uploadQueue.length > 0 && (
-            <ul className="mt-3 space-y-1">
-              {uploadQueue.map(item => (
-                <li key={item.key} className="flex items-center gap-2 text-xs">
-                  {item.status === 'uploading' && <Loader2 size={11} className="animate-spin text-blue-500 shrink-0" />}
-                  {item.status === 'done' && <CheckCircle size={11} className="text-green-500 shrink-0" />}
-                  {item.status === 'error' && <AlertTriangle size={11} className="text-red-500 shrink-0" />}
-                  <span className="truncate text-gray-600">{item.name}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium text-gray-500">{t('uploadedList')} ({uploadQueue.length})</p>
+                <button onClick={() => setUploadQueue([])} className="text-xs text-gray-400 hover:text-gray-600">
+                  {t('clearList')}
+                </button>
+              </div>
+              <ul className="space-y-1">
+                {uploadQueue.map(item => (
+                  <li key={item.key} className="flex items-center gap-2 text-xs group">
+                    {item.status === 'uploading' && <Loader2 size={11} className="animate-spin text-blue-500 shrink-0" />}
+                    {item.status === 'done' && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+                    {item.status === 'error' && <AlertTriangle size={11} className="text-red-500 shrink-0" />}
+                    <span className="truncate text-gray-600 flex-1">{item.name}</span>
+                    {item.status !== 'uploading' && (
+                      <button
+                        onClick={() => removeQueueItem(item.key, item.docId)}
+                        title={item.docId ? tc('delete') : t('removeFromList')}
+                        className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
 
