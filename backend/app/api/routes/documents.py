@@ -14,6 +14,20 @@ from app.services.storage import delete_file, download_file, ensure_bucket, get_
 
 logger = logging.getLogger(__name__)
 
+
+def _storage_error(e: Exception, doc_hint: str = "") -> HTTPException:
+    """Turn a boto/storage exception into a clear HTTP error. A connection failure
+    almost always means MinIO (docker) is not running."""
+    msg = str(e)
+    if any(k in msg for k in ("Could not connect", "EndpointConnectionError", "Connection", "timed out")):
+        return HTTPException(
+            503,
+            "Không kết nối được kho lưu trữ file (MinIO). Hãy đảm bảo Docker Desktop đang chạy "
+            "và đã 'docker compose up -d' (MinIO ở cổng 9000).",
+        )
+    hint = f" ({doc_hint})" if doc_hint else ""
+    return HTTPException(502, f"Không tải được file từ kho lưu trữ{hint}: {msg}")
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 _ALLOWED_CONTENT_TYPES: dict[str, str] = {
@@ -274,7 +288,7 @@ async def reprocess_document(
     try:
         file_bytes = await download_file(doc.file_key)
     except Exception as e:
-        raise HTTPException(502, f"Failed to retrieve file from storage: {e}") from e
+        raise _storage_error(e) from e
 
     from app.services.ai.ocr import ocr_service
     try:
@@ -324,7 +338,7 @@ async def bundle_ocr(
         try:
             fb = await download_file(doc.file_key)
         except Exception as e:
-            raise HTTPException(502, f"Failed to fetch {did} from storage: {e}") from e
+            raise _storage_error(e, doc.file_name) from e
         files.append((fb, doc.doc_type))
 
     from app.services.ai.ocr import ocr_service
