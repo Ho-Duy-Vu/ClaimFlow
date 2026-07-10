@@ -254,6 +254,7 @@ export function DocumentsClient() {
         const form = new FormData();
         form.append('file', valid[i]);
         form.append('doc_type', docType);
+        form.append('auto_process', 'false');   // don't OCR on upload — user confirms detection
         const r = await api.post<{ document_id: string }>('/documents/upload', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -789,21 +790,46 @@ export function DocumentsClient() {
                       </div>
                     )}
 
-                    {ocr && (ocr.processing_status === 'pending' || ocr.processing_status === 'processing') && (
+                    {/* Uploaded but not yet detected — user must confirm to run OCR */}
+                    {ocr?.processing_status === 'pending' && (
+                      <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-start gap-2">
+                            <FileText className="text-blue-500 mt-0.5" size={16} />
+                            <div>
+                              <p className="text-sm font-semibold text-blue-800">{t('detectTitle')}</p>
+                              <p className="text-xs text-blue-600 mt-0.5">{t('detectHint')}</p>
+                            </div>
+                          </div>
+                          <Button size="sm" className="text-xs shrink-0 gap-1.5"
+                            onClick={async () => {
+                              if (!selectedId) return;
+                              try {
+                                await api.post(`/documents/${selectedId}/reprocess`);
+                                startPolling(selectedId);
+                                const r = await api.get<OCRResult>(`/documents/${selectedId}/ocr`);
+                                setOcr(r.data);
+                              } catch { /* ignore */ }
+                            }}>
+                            <Sparkles size={13} /> {t('detectBtn')}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {ocr?.processing_status === 'processing' && (
                       <div className="mb-5 rounded-xl border bg-gray-50 p-4">
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{t('processing')}</p>
                         <OCRProcessing steps={stepsByStatus(ocr.processing_status)} />
                       </div>
                     )}
 
-                    {(ocr?.processing_status === 'failed' || ocr?.processing_status === 'pending') && (
+                    {ocr?.processing_status === 'failed' && (
                       <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <AlertTriangle className="text-red-500" size={16} />
-                            <p className="text-sm font-medium text-red-700">
-                              {ocr?.processing_status === 'failed' ? t('ocrFailed') : t('ocrPending')}
-                            </p>
+                            <p className="text-sm font-medium text-red-700">{t('ocrFailed')}</p>
                           </div>
                           <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600 hover:bg-red-50"
                             onClick={async () => {

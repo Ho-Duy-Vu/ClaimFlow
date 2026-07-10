@@ -52,6 +52,7 @@ async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     doc_type: str = Form(...),
+    auto_process: bool = Form(True),
     current_user: User = Depends(get_current_user),
 ) -> DocumentUploadResponse:
     if doc_type not in _ALLOWED_DOC_TYPES:
@@ -94,21 +95,26 @@ async def upload_document(
         except Exception as ocr_err:
             logger.error("Background OCR failed for document %s: %s", doc_id, ocr_err)
 
-    # Use Celery only if a worker is actively running; otherwise use BackgroundTask
-    celery_queued = False
-    try:
-        from app.tasks.document_processor import celery_app, process_document
-        workers = celery_app.control.inspect(timeout=0.5).ping()
-        if workers:
-            process_document.delay(str(doc.id), base64.b64encode(file_bytes).decode(), doc_type)
-            celery_queued = True
-            logger.info("Queued OCR via Celery worker for document %s", doc.id)
-    except Exception as e:
-        logger.debug("Celery worker check failed: %s", e)
+    # OCR is triggered only when auto_process=True. When False, the document stays
+    # "pending" and the user explicitly confirms detection later (POST .../reprocess).
+    if auto_process:
+        # Use Celery only if a worker is actively running; otherwise use BackgroundTask
+        celery_queued = False
+        try:
+            from app.tasks.document_processor import celery_app, process_document
+            workers = celery_app.control.inspect(timeout=0.5).ping()
+            if workers:
+                process_document.delay(str(doc.id), base64.b64encode(file_bytes).decode(), doc_type)
+                celery_queued = True
+                logger.info("Queued OCR via Celery worker for document %s", doc.id)
+        except Exception as e:
+            logger.debug("Celery worker check failed: %s", e)
 
-    if not celery_queued:
-        background_tasks.add_task(_run_ocr_background, str(doc.id), file_bytes, doc_type)
-        logger.info("Scheduled OCR as background task for document %s", doc.id)
+        if not celery_queued:
+            background_tasks.add_task(_run_ocr_background, str(doc.id), file_bytes, doc_type)
+            logger.info("Scheduled OCR as background task for document %s", doc.id)
+    else:
+        logger.info("Document %s uploaded without auto-processing (awaiting confirmation)", doc.id)
 
     presigned_url = get_presigned_url(file_key)
 
