@@ -68,7 +68,16 @@ cd ../frontend && npm install && npm run dev
 
 Truy cập: Frontend http://localhost:3000 · API Docs http://localhost:8000/docs · Qdrant http://localhost:6333/dashboard · MinIO http://localhost:9001
 
-> 💡 Trên Windows có thể dùng `.\start-all.ps1` để mở cả 4 terminal (Infra · Backend · Celery · Frontend) trong Windows Terminal — xem `Start.md`.
+## 📂 Cấu Trúc Tài Liệu Dự Án (Documentation Index)
+
+Toàn bộ tài liệu chi tiết được tổ chức khoa học trong thư mục [`docs/`](./docs/):
+
+| Thư mục | Nội dung tài liệu | Tài liệu chính |
+|---|---|---|
+| 🏆 **[`docs/hackathon/`](./docs/hackathon/)** | Kế hoạch phát triển ăn điểm, kịch bản thuyết trình, đề án dự thi | [`HACKATHON_DEVELOPMENT_PLAN.md`](./docs/hackathon/HACKATHON_DEVELOPMENT_PLAN.md)<br>[`HACKATHON_PITCH.md`](./docs/hackathon/HACKATHON_PITCH.md)<br>[`BAN_DRAFT_Y_TUONG_DU_AN_CLAIMFLOW.md`](./docs/hackathon/BAN_DRAFT_Y_TUONG_DU_AN_CLAIMFLOW.md) |
+| 🏗️ **[`docs/architecture/`](./docs/architecture/)** | Kiến trúc hệ thống, API endpoints, Data schemas | [`ARCHITECTURE.md`](./docs/architecture/ARCHITECTURE.md)<br>[`API.md`](./docs/architecture/API.md)<br>[`SCHEMA.md`](./docs/architecture/SCHEMA.md) |
+| 🛠️ **[`docs/development/`](./docs/development/)** | Hướng dẫn chạy, quy ước code, danh sách task, UI guide | [`Start.md`](./docs/development/Start.md)<br>[`TASKS.md`](./docs/development/TASKS.md)<br>[`CONVENTIONS.md`](./docs/development/CONVENTIONS.md)<br>[`UI.md`](./docs/development/UI.md) |
+| 💼 **[`docs/career/`](./docs/career/)** | Tóm tắt năng lực dự án phục vụ CV / Portfolio | [`CV_DESCRIPTION.md`](./docs/career/CV_DESCRIPTION.md) |
 
 </details>
 
