@@ -6,8 +6,8 @@
 ## 📌 THÔNG TIN TỔNG QUAN DỰ ÁN
 
 * **Tên đội thi:** **VM Team**
-* **Tên dự án:** **Vmap SafeDrive** — Lớp Bản Đồ Cảnh Báo Ngập Úng, Dẫn Đường Tránh Thủy Kích & Điều Phối Cứu Hộ Giao Thông 1-Chạm Cho Người Việt
-* **Slogan định vị:** *"Thấy trước rủi ro ngập lụt – Vững tay lái trên mọi nẻo đường – Cứu hộ 1-chạm cùng hệ sinh thái Tasco"*
+* **Tên dự án:** **ClaimFlow** — Nền Tảng Bản Đồ Cảnh Báo Thiên Tai, Né Ngập Úng & Bảo Trợ Di Chuyển Thông Minh Cho Người Việt
+* **Slogan định vị:** *"Thấy trước rủi ro ngập lụt – Vững tay lái trên mọi nẻo đường – Cứu hộ & Bảo trợ cùng hệ sinh thái Tasco"*
 * **Hệ sinh thái liên kết chiến lược:** **Vmap by Tasco** (Hạ tầng bản đồ số người Việt làm chủ) $\times$ **VETC Cứu Hộ 1900 6010** $\times$ **Chuỗi Gara Tasco Auto** $\times$ **Tasco Insurance** (Bảo trợ chi phí)
 * **Vệt chuyên đề (Track tham gia):** 
   * **Track chính:** **Giao thông và di chuyển thông minh** *(Tối ưu hành trình di chuyển, cảnh báo rủi ro ngập úng, triều cường, đề xuất cứu hộ và sửa chữa gara)*.
@@ -46,10 +46,10 @@ Google Maps, Apple Maps, Waze      UDI Maps (TP.HCM), HSDC (Hà Nội)    VETC C
 
 ---
 
-## 2. GIẢI PHÁP VMAP SAFEDRIVE: ĐẶT BẢN ĐỒ VMAP LÀM TRUNG TÂM
-
-**Vmap SafeDrive** định vị là lớp dữ liệu chuyên đề và ứng dụng an toàn di chuyển trên nền tảng bản đồ Vmap, tạo thành chu trình khép kín 3 bước: **Trước hành trình $\to$ Khi gặp nạn $\to$ Sau sự cố**:
-
+## 2. GIẢI PHÁP CLAIMFLOW: ĐẶT BẢN ĐỒ VMAP LÀM TRUNG TÂM
+ 
+**ClaimFlow** định vị là lớp dữ liệu chuyên đề và ứng dụng an toàn di chuyển trên nền tảng bản đồ Vmap, tạo thành chu trình khép kín 3 bước: **Trước hành trình $\to$ Khi gặp nạn $\to$ Sau sự cố**:
+ 
 ```
                      HỆ SINH THÁI DI CHUYỂN TOÀN DIỆN CỦA TASCO
        ┌─────────────────────────────────────────────────────────────────┐
@@ -59,7 +59,7 @@ Google Maps, Apple Maps, Waze      UDI Maps (TP.HCM), HSDC (Hà Nội)    VETC C
                                         │ Nhúng lớp chuyên đề
                                         ▼
        ┌─────────────────────────────────────────────────────────────────┐
-       │                   VMAP SAFEDRIVE (DỰ ÁN CỦA ĐỘI)                │
+       │                    CLAIMFLOW (DỰ ÁN CỦA ĐỘI)                    │
        │  1. Bản đồ nhiệt cảnh báo ngập lụt, triều cường & bão 63 tỉnh   │
        │  2. Thuật toán dẫn đường thông minh né các tuyến phố ngập úng   │
        │  3. Nút bấm 🚨 SOS 1-chạm: Bắt GPS & kết nối cứu hộ gần nhất    │
@@ -118,9 +118,9 @@ Google Maps, Apple Maps, Waze      UDI Maps (TP.HCM), HSDC (Hà Nội)    VETC C
 
 ---
 
-## 4. MA TRẬN SO SÁNH VƯỢT TRỘI CỦA VMAP SAFEDRIVE
+## 4. MA TRẬN SO SÁNH VƯỢT TRỘI CỦA CLAIMFLOW
 
-| Tiêu chí | Google Maps | UDI Maps / HSDC Maps | Tổng đài Cứu hộ Truyền thống | **Vmap SafeDrive (Dự án mới)** |
+| Tiêu chí | Google Maps | UDI Maps / HSDC Maps | Tổng đài Cứu hộ Truyền thống | **ClaimFlow (Dự án của đội)** |
 |---|:---:|:---:|:---:|:---:|
 | **Bản đồ do người Việt làm chủ** | ❌ (Ngoại) | ⚠️ (Cục bộ địa phương) | ❌ (Chỉ có số hotline) | ✅ **Nền tảng Vmap by Tasco** |
 | **Bao phủ ngập úng & bão lũ 63 tỉnh** | ❌ | ❌ (Chỉ HN hoặc HCM) | ❌ | ✅ **Toàn diện 63/63 tỉnh thành Việt Nam** |
@@ -142,4 +142,4 @@ Google Maps, Apple Maps, Waze      UDI Maps (TP.HCM), HSDC (Hà Nội)    VETC C
 
 ## 6. KẾT LUẬN
 
-**Vmap SafeDrive** là lời giải trọn vẹn nhất cho bài toán Hackathon của Tasco: Một ứng dụng bản đồ đậm chất Việt Nam, phục vụ trực tiếp nỗi đau ngập úng và thiên tai của người lái xe Việt, tích hợp hoàn hảo với hệ sinh thái Tasco (Vmap, VETC, Tasco Auto, Tasco Insurance), và hoàn toàn khả thi để ứng dụng vào thực tế ngay hôm nay.
+**ClaimFlow** là lời giải trọn vẹn nhất cho bài toán Hackathon của Tasco: Một ứng dụng bản đồ đậm chất Việt Nam, phục vụ trực tiếp nỗi đau ngập úng và thiên tai của người lái xe Việt, tích hợp hoàn hảo với hệ sinh thái Tasco (Vmap, VETC, Tasco Auto, Tasco Insurance), và hoàn toàn khả thi để ứng dụng vào thực tế ngay hôm nay.
