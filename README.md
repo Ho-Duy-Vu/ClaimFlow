@@ -18,13 +18,13 @@ Dự án là một sản phẩm insurtech cá nhân, tích hợp các khái ni�
 ## Tính năng chính
 
 - **📄 Document Intelligence** — OCR tiếng Việt độ chính xác cao (Gemini Vision), trích xuất dữ liệu có cấu trúc từ PDF/PNG/JPG, merge nhiều tài liệu (loại field trùng), highlight vùng đã trích xuất, chỉnh sửa trực quan, export JSON/Markdown.
-- **📋 Insurance Registration Flow** — sau OCR hiện nút "Đăng ký bảo hiểm", pre-fill thông tin khách hàng, auto-detect tỉnh → fetch geo risk → đề xuất gói. 6 loại × 3 gói (Cơ Bản / Nâng Cao / Toàn Diện).
-- **🌍 Geo Risk Intelligence** — risk score theo tỉnh/vùng miền (Bắc/Trung/Nam), cảnh báo Bão/Lũ/Ngập/Sạt lở, bản đồ choropleth Leaflet (GeoJSON WGS84), nhận diện tỉnh không dấu + alias (HCM, Saigon, HN).
-- **💬 AI Insurance Chatbot** — Gemini Pro tư vấn 24/7 theo vùng miền, cross-sell combo, bảo vệ PII (không lộ CCCD/SĐT/địa chỉ), trang chuyên dụng `/chatbot`.
-- **🛡️ Insurance Browse & Buy (`/policies`)** — Tab "Gói của tôi" (filter Active/Expired/Cancelled, cancel có confirm, badge còn X ngày) + Tab "Mua gói mới".
-- **🏠 Dashboard** — welcome banner theo role, snapshot cards, high-risk alert, recent claims, quick actions, my policies grid.
-- **🔍 Claim Processing (AI Agent)** — LangGraph 4 node `extract_data → check_coverage → fraud_detection → make_decision`, RAG trên Qdrant, real-time qua WebSocket, human review.
-- **📊 Analytics Dashboard (`/analytics`)** — 4 metric card, daily bar chart, region pie (SVG thuần), disaster/claim type breakdown, scope tự động theo role.
+- **📋 Insurance Registration Flow & Family Hub** — sau OCR hiện nút "Đăng ký bảo hiểm", pre-fill thông tin khách hàng với hàm chuẩn hóa ngày sinh `YYYY-MM-DD` chống lỗi form. Hỗ trợ mô hình **Hộ gia đình (Family Hub)** với kiến trúc **State Isolation** (cô lập dữ liệu chính chủ và người thân, tự động nhận diện tài liệu người thân, loại bỏ hoàn toàn nguy cơ rò rỉ hoặc lai ghép dữ liệu cá nhân). Hỗ trợ mua và quản lý đa hợp đồng cho các thành viên và nhiều phương tiện/tài sản.
+- **🌍 Geo Risk Intelligence (`/risk-map`)** — bản đồ số Leaflet chuẩn WGS84 tích hợp **toàn bộ 63/63 tỉnh thành Việt Nam**. Giao diện bản đồ dạng đường phố (**Streets Basemap**) sắc nét, tích hợp **Dropdown lọc động 5 loại thiên tai** (Bão, Lũ lụt, Sạt lở, Ngập úng, Hạn hán) kèm badge số lượng tỉnh rủi ro cao, định vị thông minh giải quyết Cold-Start, và đề xuất gói bảo hiểm AI theo vùng.
+- **💬 AI Insurance Chatbot** — Gemini Pro tư vấn 24/7 theo vùng miền, cross-sell combo, bảo vệ PII (không lộ CCCD/SĐT/địa chỉ), trang chuyên dụng `/chatbot` với link điều hướng hành động trực tiếp.
+- **🛡️ Insurance Browse & Buy (`/policies`)** — Hành trình khách hàng tối ưu với 3 tabs: **"Tham khảo gói" (Mặc định)** $\rightarrow$ **"Gói của tôi"** (filter Active/Expired/Cancelled, cancel có confirm, badge còn X ngày) $\rightarrow$ **"Lịch sử"**.
+- **🏠 Dashboard** — welcome banner theo role, snapshot cards, high-risk alert, recent claims, quick actions, my policies grid, banner định vị vị trí 1 chạm.
+- **🔍 Claim Processing (AI Agent & Dual-source Evidence)** — quy trình nộp bồi thường linh hoạt kết hợp **Upload trực tiếp hình ảnh/chứng từ hiện trường (Upload chính)** qua Dropzone và **Tái sử dụng kho hồ sơ đã OCR (Upload phụ / đồng bộ)**; LangGraph 4 node `extract_data → check_coverage → fraud_detection → make_decision`, RAG trên Qdrant, real-time qua WebSocket, human review.
+- **📊 Analytics Dashboard (`/analytics`)** — Phân tích chuyên sâu với **bộ lọc thời gian đa tầng (Năm / Tháng / Ngày / Tùy chọn)**, tổng quan danh mục bảo hiểm cá nhân (Portfolio Overview: tổng bảo vệ, tổng phí năm, tỷ lệ bồi thường), daily bar chart, region pie, disaster/claim type breakdown, scope tự động theo role.
 - **🔔 Notification Center** — thông báo in-app realtime (WebSocket per-user): claim được duyệt/chi trả, cần bổ sung, mua/gia hạn/sắp hết hạn gói. Chuông + badge chưa đọc trên header.
 - **💳 Payment & Renewal** — lịch đóng phí theo kỳ (tháng/quý/năm) + đóng phí mô phỏng (QR ngân hàng giả lập) + biên lai PDF; nhắc gói sắp hết hạn (≤30 ngày) + gia hạn 1 chạm.
 - **🌗 Dark mode & Mobile** — chuyển sáng/tối (nhớ lựa chọn), sidebar dạng drawer + header responsive cho màn hình nhỏ.
@@ -93,46 +93,53 @@ It is a personal insurtech product that puts real-world system-design concepts i
 - Inline editing of extracted data through an intuitive UI
 - Export to JSON and Markdown
 
-### 📋 Insurance Registration Flow
+### 📋 Insurance Registration Flow & Family Hub
 - An **"Register insurance"** button appears automatically once OCR completes
-- Customer details are pre-filled from the OCR result (full name, date of birth, address)
-- Auto-detects the province → fetches geo risk → shows the risk score and recommended plans
-- Six insurance categories: **Health · Life · Property · Vehicle · Disaster · Income**
-- Each category offers three tiers: **Basic / Advanced / Comprehensive**
-- Pick a plan → purchase → the `UserPolicy` becomes active → you can file a claim immediately
+- Customer details are pre-filled with automated date-of-birth normalization (`YYYY-MM-DD`) ensuring compatibility with browser date inputs
+- **Family Hub architecture with State Isolation:** cleanly separates self-insured profiles from family members (spouse, child, parent), automatically detecting if an uploaded document belongs to a relative and preventing any cross-profile data contamination
+- **Multi-Policy & Asset-based Anti-duplication:** 1 user account can purchase and manage multiple policies for themselves, different family members, and multiple assets (distinct vehicle license plates and property addresses)
+- Auto-detects province → fetches geo risk → shows risk score and recommended plans
+- Six insurance categories: **Health · Life · Property · Vehicle · Disaster · Income** with three tiers each: **Basic / Advanced / Comprehensive**
 
-### 🌍 Geo Risk Intelligence
-- Region detection from an address (23 northern / 19 central / 22 southern provinces)
-- Per-province and per-region risk scoring based on historical disaster data
-- Flags high-risk provinces such as Quảng Bình, Hà Tĩnh, Nghệ An, and Quảng Nam
-- Disaster alerts: typhoons, floods, waterlogging, and landslides
-- Interactive Leaflet choropleth map built on standard WGS84 GeoJSON
-- Insurance recommendations aligned with geographic risk
-- Province detection handles diacritic-free names and aliases (HCM, TP HCM, Saigon, HN)
+### 🌍 Geo Risk Intelligence (`/risk-map`)
+- Full coverage of **all 63/63 provinces of Vietnam** on standard WGS84 GeoJSON (includes calibrated polygons for Đồng Nai, TP. Hồ Chí Minh, and Thừa Thiên Huế)
+- **Streets Basemap by default:** crisp and familiar OpenStreetMap street layer for easy recognition of administrative boundaries and routes
+- **Interactive Multi-Disaster Dropdown:** dynamic dropdown filter with icons and high-risk province counters for Overall Risk, Typhoon/Storm, Flood, Landslide, Inundation, or Drought
+- Smart Cold-Start location detection (GPS + IP fallback) with a dedicated "My Location" navigation button
+- Region-level filtering: Northern (25), Central (19), and Southern (19) provinces
+- Interactive quick-search autocomplete for instant province location and smooth zoom
+- National risk overview statistics (Very High, High, Medium, Low breakdown + Top 5 highest risk provinces)
+- AI-driven insurance recommendations and direct purchase shortcut per province
 
 ### 💬 AI Insurance Chatbot
 - Powered by Google Gemini Pro
 - 24/7 insurance advice, personalized to the user's needs
-- Explains insurance terminology in plain language
+- Explains insurance terminology in plain language with direct actionable navigation links
 - Region-aware guidance (North / Central / South)
 - Cross-sell suggestions for bundles, e.g. Life + Health + Disaster
 - Protects sensitive data — never discloses the CCCD number, detailed address, or phone number
 - **Dedicated `/chatbot` page** — a full-page chat with suggestion chips, a welcome block, a typing indicator, and session persistence via localStorage
 
 ### 🛡️ Insurance Browse & Buy (`/policies`)
-- A standalone page to view and purchase insurance — no longer buried inside the OCR flow
-- **"My plans" tab:** lists every policy with a category-themed gradient card, an Active/Expired/Cancelled filter, a Cancel action guarded by a confirmation dialog, and a "X days left" badge with near-expiry warnings
-- **"Buy a new plan" tab:** pick one of the six categories → see the Basic / Advanced / Comprehensive tiers, with already-owned categories marked to prevent duplicate purchases
+- A standalone page to view and purchase insurance — reordered to match the customer journey:
+  - **"Browse plans" tab (Default):** explore all 6 categories and tiers with regional recommendations and one-click buying
+  - **"My plans" tab:** lists every policy with a category-themed gradient card, an Active/Expired/Cancelled filter, a Cancel action guarded by a confirmation dialog, and a "X days left" badge with near-expiry warnings
+  - **"History" tab:** comprehensive log of past transactions and expired/renewed policies
 - Stats banner: total active plans + total coverage + total annual premium
 
 ### 🏠 Dashboard (Home — `/dashboard`)
 - Gradient welcome banner with the user's name and a role-based subtitle
 - Role-based snapshot cards: Active Claims / Active Policies / Area Risk Score (user) / Pending Review (reviewer & admin)
 - Automatic high-risk alert when the user lives in an `is_high_risk` province
+- One-click smart location prompt when user profile has no province set
 - Recent claims (five latest) plus quick-action tiles (Submit Claim / Upload Doc / Buy Policy / Chatbot / Risk Map, with extras by role)
 - "My policies" grid (first six active plans with policy number, premium, and expiry)
 
-### 🔍 Claim Processing (AI Agent)
+### 🔍 Claim Processing (AI Agent & Dual-source Evidence)
+- **Dual-source evidence submission:**
+  - **Primary direct upload:** drag & drop field photos, hospital invoices, and police reports (JPG, PNG, PDF up to 20MB) directly on the claim wizard
+  - **Secondary / synced repository:** seamlessly select existing OCR-processed documents (CCCD, vehicle registrations) without re-uploading
+  - Synchronized counter comparing attached files against required policy counts
 - A four-node LangGraph workflow: `extract_data` → `check_coverage` → `fraud_detection` → `make_decision`
 - RAG search over policy documents (Qdrant)
 - Validation: an active `UserPolicy` is required before a claim can be submitted
@@ -141,11 +148,11 @@ It is a personal insurtech product that puts real-world system-design concepts i
 - Analytics dashboard
 
 ### 📊 Analytics Dashboard (`/analytics`)
+- **Granular Time Filtering:** All time · This Year · This Month · Today · Custom Date Range
+- **Personal Portfolio Overview:** Total insured coverage value, total annual premiums, active policy count, and personal claim payout ratio
 - Four metric cards: Total Claims · Approval Rate · Avg. Processing Time · Total Approved Amount
-- 30-day daily bar chart — total and approved, layered
-- Region pie chart (pure SVG) — North / Central / South / unknown
-- Top disaster types and claim-type breakdowns
-- Automatic backend scoping: admins and reviewers see everything; regular users see only their own claims
+- Layered daily bar chart, pure SVG region distribution pie chart, and breakdown by disaster and policy type
+- Automatic backend scoping: admins and reviewers see everything; regular users see their tailored portfolio and claims history
 
 ### 🔔 Notification Center
 - Real-time in-app notifications over a **per-user WebSocket** channel (`/notifications/ws`)

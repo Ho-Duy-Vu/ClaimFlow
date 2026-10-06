@@ -105,29 +105,33 @@ export function PaymentModal({
   );
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-xs px-4">
+      <div className="bg-white rounded-[26px] shadow-2xl border border-[#d0d5dd] w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gradient-to-r from-emerald-600 to-teal-600 rounded-t-2xl">
-          <div className="flex items-center gap-2 text-white">
-            {method === 'bank_transfer' ? <QrCode size={17} /> : method === 'card' ? <CreditCard size={17} /> : <Banknote size={17} />}
-            <h2 className="font-bold text-sm">{tw('paymentSimTitle')}</h2>
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-white/10 bg-[#13426f] text-white shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#2e96ff] flex items-center justify-center text-white shadow-xs">
+              {method === 'bank_transfer' ? <QrCode size={17} /> : method === 'card' ? <CreditCard size={17} /> : <Banknote size={17} />}
+            </div>
+            <h2 className="font-bold text-base">{tw('paymentSimTitle')}</h2>
           </div>
-          <button onClick={onCancel} disabled={submitting}><X size={17} className="text-emerald-100 hover:text-white" /></button>
+          <button onClick={onCancel} disabled={submitting} className="p-1.5 text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-colors">
+            <X size={17} />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           {/* Simulation banner */}
-          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-700 text-center">
+          <div className="rounded-[16px] bg-[#f9f7f0] border border-[#d0d5dd] px-3.5 py-2.5 text-xs text-[#13426f] font-medium text-center">
             {tw('simulatedNote')}
           </div>
 
           {/* Amount */}
-          <div className="text-center">
-            <p className="text-xs text-gray-500">{tw('amountDue')} · {freqLabel}</p>
-            <p className="text-2xl font-bold text-emerald-700">{fmtVND(amountDue)}</p>
+          <div className="text-center py-2">
+            <p className="text-xs text-[#333333]/60 font-semibold uppercase tracking-wider">{tw('amountDue')} · {freqLabel}</p>
+            <p className="text-3xl font-black text-emerald-600 mt-0.5">{fmtVND(amountDue)}</p>
             {frequency !== 'yearly' && (
-              <p className="text-[11px] text-gray-400">{tw('annualTotal')}: {fmtVND(annualPremium)}/{tw('years')}</p>
+              <p className="text-xs text-[#333333]/50 mt-1">{tw('annualTotal')}: {fmtVND(annualPremium)}/{tw('years')}</p>
             )}
           </div>
 
@@ -135,15 +139,15 @@ export function PaymentModal({
           {method === 'bank_transfer' && (
             <>
               <div className="flex flex-col items-center gap-2">
-                <div className="p-2.5 rounded-xl border-2 border-emerald-100 bg-white">
+                <div className="p-3 rounded-[20px] border border-[#d0d5dd] bg-white shadow-card">
                   <PseudoQR seed={qrSeed} />
                 </div>
-                <p className="text-[11px] text-gray-500 flex items-center gap-1">
-                  <QrCode size={11} /> {tw('scanToPay')}
+                <p className="text-xs text-[#333333]/70 font-semibold flex items-center gap-1.5">
+                  <QrCode size={13} className="text-[#2e96ff]" /> {tw('scanToPay')}
                 </p>
               </div>
 
-              <div className="rounded-xl border bg-gray-50 divide-y text-sm">
+              <div className="rounded-[18px] border border-[#d0d5dd] bg-[#f9f7f0]/60 divide-y divide-[#d0d5dd]/50 text-xs overflow-hidden shadow-2xs">
                 <Row label={tw('bankName')} value={DEMO_BANK.name} />
                 <Row label={tw('accountNumber')} value={DEMO_BANK.account} action={<CopyBtn value={DEMO_BANK.account} k="acc" />} mono />
                 <Row label={tw('accountHolder')} value={DEMO_BANK.holder} mono />
@@ -155,49 +159,53 @@ export function PaymentModal({
 
           {/* ── CARD: simulated card form ── */}
           {method === 'card' && (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div>
-                <Label className="text-xs text-gray-600 mb-1 block">{tw('cardNumber')}</Label>
+                <Label className="text-xs font-bold text-[#13426f] mb-1 block">{tw('cardNumber')}</Label>
                 <Input inputMode="numeric" placeholder="4111 1111 1111 1111" value={card.number}
                   onChange={e => setCard(p => ({ ...p, number: e.target.value.replace(/[^\d ]/g, '').slice(0, 19) }))}
-                  className="text-sm h-9 font-mono" />
+                  className="text-sm h-10 font-mono rounded-full border-[#d0d5dd] bg-[#f9f7f0]/50 px-4" />
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-gray-600 mb-1 block">{tw('cardExpiry')}</Label>
+                  <Label className="text-xs font-bold text-[#13426f] mb-1 block">{tw('cardExpiry')}</Label>
                   <Input placeholder="MM/YY" value={card.expiry}
                     onChange={e => setCard(p => ({ ...p, expiry: e.target.value.replace(/[^\d/]/g, '').slice(0, 5) }))}
-                    className="text-sm h-9 font-mono" />
+                    className="text-sm h-10 font-mono rounded-full border-[#d0d5dd] bg-[#f9f7f0]/50 px-4" />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-600 mb-1 block">{tw('cardCvv')}</Label>
+                  <Label className="text-xs font-bold text-[#13426f] mb-1 block">{tw('cardCvv')}</Label>
                   <Input inputMode="numeric" placeholder="123" value={card.cvv}
                     onChange={e => setCard(p => ({ ...p, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                    className="text-sm h-9 font-mono" />
+                    className="text-sm h-10 font-mono rounded-full border-[#d0d5dd] bg-[#f9f7f0]/50 px-4" />
                 </div>
               </div>
               <div>
-                <Label className="text-xs text-gray-600 mb-1 block">{tw('cardHolder')}</Label>
-                <Input value={card.holder} onChange={e => setCard(p => ({ ...p, holder: e.target.value }))} className="text-sm h-9" />
+                <Label className="text-xs font-bold text-[#13426f] mb-1 block">{tw('cardHolder')}</Label>
+                <Input value={card.holder} onChange={e => setCard(p => ({ ...p, holder: e.target.value }))} className="text-sm h-10 rounded-full border-[#d0d5dd] bg-[#f9f7f0]/50 px-4" />
               </div>
             </div>
           )}
 
           {/* ── CASH: pay at office ── */}
           {method === 'cash' && (
-            <div className="rounded-xl border bg-gray-50 p-4 text-center space-y-1">
-              <Banknote size={22} className="text-emerald-600 mx-auto" />
-              <p className="text-sm text-gray-700">{tw('cashNote')}</p>
-              <p className="text-xs text-gray-400">{tw('transferContent')}: <span className="font-mono">{reference}</span></p>
+            <div className="rounded-[18px] border border-[#d0d5dd] bg-[#f9f7f0] p-5 text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                <Banknote size={24} />
+              </div>
+              <p className="text-sm font-bold text-[#13426f]">{tw('cashNote')}</p>
+              <p className="text-xs text-[#333333]/60">{tw('transferContent')}: <span className="font-mono font-bold text-[#13426f]">{reference}</span></p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3.5 border-t flex items-center justify-between bg-gray-50 rounded-b-2xl">
-          <Button variant="outline" size="sm" onClick={onCancel} disabled={submitting}>{tw('cancelPayment')}</Button>
-          <Button size="sm" onClick={onConfirm} disabled={confirmDisabled} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-            {submitting ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+        <div className="px-6 py-4 border-t border-[#d0d5dd] flex items-center justify-between bg-[#f9f7f0] shrink-0">
+          <Button variant="outline" size="sm" onClick={onCancel} disabled={submitting} className="rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold">
+            {tw('cancelPayment')}
+          </Button>
+          <Button size="sm" onClick={onConfirm} disabled={confirmDisabled} className="rounded-full bg-[#2e96ff] text-white shadow-[0_4px_0_0_rgba(154,207,246,0.5)] active:translate-y-0.5 hover:bg-[#2582df] font-bold gap-1.5 px-5">
+            {submitting ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={14} />}
             {method === 'cash' ? tw('confirmOrder') : tw('confirmPaid')}
           </Button>
         </div>

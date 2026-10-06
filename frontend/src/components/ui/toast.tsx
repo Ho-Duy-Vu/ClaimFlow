@@ -70,8 +70,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               key={item.id}
               onOpenChange={(open) => { if (!open) remove(item.id); }}
               className={cn(
-                'pointer-events-auto rounded-xl border shadow-lg px-4 py-3 flex items-start gap-3',
-                'data-[state=open]:animate-in data-[state=open]:slide-in-from-right-4',
+                'pointer-events-auto rounded-xl border shadow-lg px-4 py-3 flex items-start gap-3 bg-white/95 backdrop-blur-xs',
+                'data-[state=open]:animate-in data-[state=open]:slide-in-from-top-4 data-[state=open]:fade-in-50',
                 'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right-4',
                 v.border, v.bg,
               )}
@@ -79,15 +79,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <Icon size={18} className={cn('shrink-0 mt-0.5', v.iconCls)} />
               <div className="min-w-0 flex-1">
                 {item.title && <ToastPrimitive.Title className="text-sm font-semibold text-gray-900">{item.title}</ToastPrimitive.Title>}
-                <ToastPrimitive.Description className="text-sm text-gray-700">{item.message}</ToastPrimitive.Description>
+                <ToastPrimitive.Description className="text-xs text-gray-700 leading-relaxed mt-0.5">{item.message}</ToastPrimitive.Description>
               </div>
-              <ToastPrimitive.Close className="shrink-0 text-gray-400 hover:text-gray-600 transition-colors">
+              <ToastPrimitive.Close className="shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-1">
                 <X size={14} />
               </ToastPrimitive.Close>
             </ToastPrimitive.Root>
           );
         })}
-        <ToastPrimitive.Viewport className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-[360px] max-w-[calc(100vw-2rem)] outline-none" />
+        <ToastPrimitive.Viewport className="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 w-[360px] max-w-[calc(100vw-2rem)] outline-none" />
       </ToastPrimitive.Provider>
     </ToastContext.Provider>
   );

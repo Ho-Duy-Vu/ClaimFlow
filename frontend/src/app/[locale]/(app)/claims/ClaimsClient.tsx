@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  AlertTriangle, Check, CheckCircle, ChevronRight, Clock,
-  Download, FileText, Loader2, Plus, ShieldAlert, Sparkles, Trash2, Upload, X,
+  AlertTriangle, Building2, Calendar, Check, CheckCircle, ChevronRight, Clock,
+  CreditCard, Download, ExternalLink, FileCheck, FileText, Hospital, Loader2,
+  MapPin, Navigation, Phone, Plus, QrCode, ShieldAlert, ShieldCheck, Sparkles,
+  Trash2, Upload, User as UserIcon, Wrench, X,
 } from 'lucide-react';
 // ShieldAlert kept for DetailModal fraud section
 import { Button } from '@/components/ui/button';
@@ -12,12 +14,15 @@ import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import api from '@/lib/api';
 import { fraudFlagLabel } from '@/lib/fraudFlags';
+import { getPolicySubjectLabel, getRelationshipLabel } from '@/lib/policy-helpers';
 import { ClaimSubmitWizard } from '@/components/claims/ClaimSubmitWizard';
 import type { Claim, DocumentRecord, UserPolicy } from '@/types';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const STATUSES = ['pending', 'processing', 'approved', 'rejected', 'manual_review', 'info_requested'] as const;
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 const WS_BASE =
   (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').replace(/^http/, 'ws');
@@ -31,21 +36,21 @@ function fmtVND(n: number | null | undefined) {
 
 function StatusBadge({ status, label }: { status: string; label: string }) {
   const cls: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    processing: 'bg-blue-100 text-blue-600',
-    approved: 'bg-green-100 text-green-700',
-    rejected: 'bg-red-100 text-red-600',
-    manual_review: 'bg-orange-100 text-orange-700',
-    info_requested: 'bg-amber-100 text-amber-800',
+    pending: 'bg-amber-50 text-amber-900 border border-amber-300',
+    processing: 'bg-[#bde1f9] text-[#13426f] border border-[#2e96ff]/40',
+    approved: 'bg-emerald-50 text-emerald-800 border border-emerald-300',
+    rejected: 'bg-red-50 text-red-800 border border-red-300',
+    manual_review: 'bg-orange-50 text-orange-900 border border-orange-300',
+    info_requested: 'bg-amber-50 text-amber-900 border border-amber-300',
   };
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cls[status] ?? cls.pending}`}>
-      {status === 'processing' && <Loader2 size={10} className="animate-spin" />}
-      {status === 'approved' && <CheckCircle size={10} />}
-      {status === 'rejected' && <X size={10} />}
-      {status === 'manual_review' && <AlertTriangle size={10} />}
-      {status === 'info_requested' && <AlertTriangle size={10} />}
-      {status === 'pending' && <Clock size={10} />}
+    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${cls[status] ?? cls.pending}`}>
+      {status === 'processing' && <Loader2 size={11} className="animate-spin" />}
+      {status === 'approved' && <CheckCircle size={11} className="stroke-[2.5]" />}
+      {status === 'rejected' && <X size={11} className="stroke-[2.5]" />}
+      {status === 'manual_review' && <AlertTriangle size={11} className="stroke-[2.5]" />}
+      {status === 'info_requested' && <AlertTriangle size={11} className="stroke-[2.5]" />}
+      {status === 'pending' && <Clock size={11} className="stroke-[2.5]" />}
       {label}
     </span>
   );
@@ -70,10 +75,11 @@ function FraudGauge({ score }: { score: number | null }) {
 // ── Detail modal ───────────────────────────────────────────────────────────────
 
 function DetailModal({
-  claim, docs, onUpdated, onClose,
+  claim, docs, policies, onUpdated, onClose,
 }: {
   claim: Claim;
   docs: DocumentRecord[];
+  policies: UserPolicy[];
   onUpdated: () => void;
   onClose: () => void;
 }) {
@@ -132,6 +138,10 @@ function DetailModal({
     } finally {
       setDownloadingInvoice(false);
     }
+  };
+
+  const openDoc = (id: string) => {
+    window.open(`${API_BASE}/documents/${id}/file`, '_blank', 'noopener,noreferrer');
   };
 
   const doneDocs = docs.filter((d) => d.processing_status === 'done');
@@ -210,6 +220,7 @@ function DetailModal({
   }, [claim.id, claim.status]);
 
   const merged = { ...claim, status: liveStatus, ...liveData };
+  const matchedPolicy = policies.find(p => p.id === merged.policy_id);
   const decisionColor: Record<string, string> = {
     approve: 'text-green-700 bg-green-50 border-green-100',
     reject: 'text-red-700 bg-red-50 border-red-100',
@@ -218,11 +229,11 @@ function DetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs px-4">
+      <div className="bg-white rounded-[26px] shadow-2xl border border-[#d0d5dd] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-7 py-4.5 min-h-[64px] border-b border-[#d0d5dd] bg-[#f9f7f0]">
           <div className="flex items-center gap-3">
-            <h2 className="font-bold text-gray-900">{t('detailTitle')}</h2>
+            <h2 className="font-bold text-[#13426f] text-lg">{t('detailTitle')}</h2>
             <StatusBadge
               status={merged.status}
               label={t(`status.${
@@ -232,10 +243,12 @@ function DetailModal({
               }`)}
             />
           </div>
-          <button onClick={onClose}><X size={18} className="text-gray-400 hover:text-gray-600" /></button>
+          <button onClick={onClose} className="p-2 text-[#616c8a] hover:text-[#13426f] hover:bg-white rounded-full transition-colors cursor-pointer">
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-7 pt-6 pb-14 space-y-5">
           {/* Real-time processing indicator */}
           {merged.status === 'processing' && (
             <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
@@ -392,6 +405,165 @@ function DetailModal({
             </div>
           )}
 
+          {/* Hợp đồng & Đối tượng được bảo hiểm */}
+          {matchedPolicy ? (
+            <div className="rounded-xl border bg-emerald-50/70 border-emerald-200 p-3.5 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-emerald-900 flex items-center gap-1.5 text-xs">
+                  <ShieldCheck size={15} className="text-emerald-600" />
+                  Hợp đồng & Đối tượng được bảo hiểm:
+                </span>
+                <span className="font-mono text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">
+                  {matchedPolicy.policy_number}
+                </span>
+              </div>
+              <div className="text-gray-800 space-y-1 pl-5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">Gói bảo hiểm:</span>
+                  <span className="font-semibold text-gray-900">{matchedPolicy.plan_name} · Hạn mức: {fmtVND(matchedPolicy.coverage_amount)}</span>
+                </div>
+                {matchedPolicy.insured_person?.name ? (
+                  <div className="pt-1.5 border-t border-emerald-200/60 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Người được bảo hiểm:</span>
+                      <span className="font-bold text-gray-900">
+                        👤 {matchedPolicy.insured_person.name} ({getRelationshipLabel(matchedPolicy.insured_person.relationship)})
+                      </span>
+                    </div>
+                    {(matchedPolicy.insured_person.dob || matchedPolicy.insured_person.id_number) && (
+                      <div className="flex justify-between text-[11px] text-gray-500 mt-0.5">
+                        <span>CCCD / Ngày sinh:</span>
+                        <span className="font-mono">
+                          {[matchedPolicy.insured_person.id_number, matchedPolicy.insured_person.dob].filter(Boolean).join(' · ')}
+                        </span>
+                      </div>
+                    )}
+                    {matchedPolicy.insured_person.relationship !== 'self' && (
+                      <p className="text-[11px] text-emerald-800 bg-emerald-100/70 rounded p-1.5 mt-1 font-medium">
+                        ℹ️ Hồ sơ bồi thường cho người thân: <strong>{matchedPolicy.insured_person.name}</strong>. Hạn mức chi trả tính trên hợp đồng của người này.
+                      </p>
+                    )}
+                  </div>
+                ) : matchedPolicy.subject_details?.license_plate ? (
+                  <div className="pt-1.5 border-t border-emerald-200/60 text-xs flex justify-between">
+                    <span className="text-gray-500">Phương tiện:</span>
+                    <span className="font-bold text-gray-900">
+                      🚗 Biển số {matchedPolicy.subject_details.license_plate} {[matchedPolicy.subject_details.brand, matchedPolicy.subject_details.model].filter(Boolean).join(' ')}
+                    </span>
+                  </div>
+                ) : matchedPolicy.subject_details?.address ? (
+                  <div className="pt-1.5 border-t border-emerald-200/60 text-xs flex justify-between">
+                    <span className="text-gray-500">Địa chỉ tài sản:</span>
+                    <span className="font-bold text-gray-900">🏠 {matchedPolicy.subject_details.address}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : merged.policy_id ? (
+            <div className="rounded-xl border bg-gray-50 border-gray-200 p-3 text-xs flex items-center justify-between">
+              <span className="text-gray-500">Mã hợp đồng liên kết:</span>
+              <span className="font-mono font-medium text-gray-800">#{merged.policy_id.slice(-8).toUpperCase()}</span>
+            </div>
+          ) : null}
+
+          {/* ── THƯ BẢO LÃNH ĐIỆN TỬ e-GOP (Cashless Direct Billing Guarantee) ── */}
+          {merged.partner && (
+            <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-sky-50/60 p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                    {merged.partner.partner_type === 'hospital' ? <Hospital size={16} /> : <Wrench size={16} />}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold text-blue-700 tracking-wider uppercase block">
+                      THƯ BẢO LÃNH ĐIỆN TỬ (e-GOP DIRECT BILLING)
+                    </span>
+                    <h4 className="font-extrabold text-slate-900 text-sm">
+                      {merged.partner.name}
+                    </h4>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-mono">
+                  <CheckCircle size={11} /> ĐÃ DUYỆT BẢO LÃNH
+                </span>
+              </div>
+
+              <div className="bg-white/95 rounded-xl p-3 border border-blue-100 flex flex-col sm:flex-row items-center gap-3">
+                {/* QR Code Presentation Box */}
+                <div className="bg-slate-900 p-2.5 rounded-xl text-white flex flex-col items-center justify-center shrink-0 text-center w-full sm:w-auto">
+                  <QrCode size={46} className="text-white" />
+                  <span className="text-[9px] font-mono text-emerald-400 mt-1 uppercase font-bold">
+                    Quét tại quầy tiếp đón
+                  </span>
+                </div>
+
+                <div className="space-y-1 text-xs text-slate-700 flex-1 w-full">
+                  <div className="flex items-start gap-1.5 text-slate-600 text-[11px]">
+                    <MapPin size={12} className="text-red-500 shrink-0 mt-0.5" />
+                    <span>{merged.partner.address}, {merged.partner.province}</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[11px] pt-0.5 flex-wrap">
+                    <span className="flex items-center gap-1 font-mono text-blue-700 font-bold">
+                      <Phone size={11} /> {merged.partner.hotline || merged.partner.phone}
+                    </span>
+                    {merged.partner.cashless_supported && (
+                      <span className="text-emerald-700 font-medium">
+                        ✓ Miễn ứng tiền mặt (Cashless)
+                      </span>
+                    )}
+                  </div>
+
+                  {merged.partner.notes && (
+                    <p className="text-[11px] text-slate-600 italic bg-blue-50/50 p-1.5 rounded border border-blue-100/60 mt-1">
+                      Chỉ đạo bảo lãnh: &ldquo;{merged.partner.notes}&rdquo;
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Action: Open Navigation via Goong Map or Google Map */}
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <span className="text-[11px] text-slate-500">
+                  Xuất trình mã QR này tại Bệnh viện/Gara đối tác để được bảo lãnh trực tiếp.
+                </span>
+                {merged.partner.lat && merged.partner.lng ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      window.open(
+                        `/risk-map?partner_id=${merged.partner!.id}&dest_lat=${merged.partner!.lat}&dest_lng=${merged.partner!.lng}`,
+                        '_blank'
+                      );
+                    }}
+                    className="h-7 text-xs font-bold text-blue-700 border-blue-300 hover:bg-blue-50 gap-1 rounded-xl cursor-pointer"
+                  >
+                    <Navigation size={12} />
+                    Chỉ đường Goong Map
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      window.open(
+                        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          `${merged.partner!.name} ${merged.partner!.address}`
+                        )}`,
+                        '_blank'
+                      );
+                    }}
+                    className="h-7 text-xs font-bold text-blue-700 border-blue-300 hover:bg-blue-50 gap-1 rounded-xl cursor-pointer"
+                  >
+                    <Navigation size={12} />
+                    Chỉ đường
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Claim info */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-gray-50 rounded-xl p-3">
@@ -412,6 +584,183 @@ function DetailModal({
               <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-xs text-gray-400 mb-0.5">{t('disasterType')}</p>
                 <p className="font-medium text-gray-800">{t(`disasterTypes.${merged.disaster_type}`)}</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── CHI TIẾT SỰ CỐ & KHAI BÁO CỦA KHÁCH HÀNG ── */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3 text-xs">
+            <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <Calendar size={15} className="text-blue-600" />
+              Thông tin Sự cố & Khai báo Bồi thường
+            </h4>
+
+            {merged.description && (
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/70">
+                <p className="text-[11px] text-slate-500 mb-1 font-semibold">Diễn biến sự kiện bảo hiểm:</p>
+                <p className="text-slate-800 text-xs leading-relaxed italic">
+                  &ldquo;{merged.description}&rdquo;
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {merged.incident_date && (
+                <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 block">Thời gian xảy ra sự cố:</span>
+                  <span className="font-semibold text-slate-800 text-xs">
+                    📅 {new Date(merged.incident_date).toLocaleDateString('vi-VN')} {merged.incident_time ? ` lúc ${merged.incident_time}` : ''}
+                  </span>
+                </div>
+              )}
+
+              {merged.incident_location?.address && (
+                <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 block">Địa điểm xảy ra:</span>
+                  <span className="font-semibold text-slate-800 text-xs line-clamp-1" title={merged.incident_location.address}>
+                    📍 {merged.incident_location.address}
+                  </span>
+                </div>
+              )}
+
+              {merged.incident_type && (
+                <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 block">Phân loại sự cố:</span>
+                  <span className="font-semibold text-slate-800 text-xs uppercase">
+                    {merged.incident_type}
+                  </span>
+                </div>
+              )}
+
+              {merged.hospital_admission_number && (
+                <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 block">Mã nhập viện / Hồ sơ bệnh án:</span>
+                  <span className="font-mono font-bold text-slate-800 text-xs">
+                    🏥 {merged.hospital_admission_number}
+                  </span>
+                </div>
+              )}
+
+              {merged.police_report_number && (
+                <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 block">Biên bản hiện trường CSGT:</span>
+                  <span className="font-mono font-bold text-slate-800 text-xs">
+                    🚓 {merged.police_report_number}
+                  </span>
+                </div>
+              )}
+
+              {merged.witness_info?.name && (
+                <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/60">
+                  <span className="text-[11px] text-slate-500 block">Người làm chứng:</span>
+                  <span className="font-semibold text-slate-800 text-xs">
+                    👤 {merged.witness_info.name} {merged.witness_info.phone ? `(${merged.witness_info.phone})` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Tài khoản nhận tiền thụ hưởng */}
+            {merged.bank_account?.account_number && (
+              <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
+                    <CreditCard size={12} className="text-emerald-600" />
+                    Tài khoản nhận bồi thường (Payout Account):
+                  </span>
+                  <p className="font-mono font-bold text-slate-900 text-xs">
+                    {merged.bank_account.account_number} · {merged.bank_account.bank_name}
+                  </p>
+                  <p className="text-[11px] text-slate-600 uppercase font-medium">
+                    Chủ tài khoản: {merged.bank_account.account_holder}
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full font-mono">
+                  VERIFIED
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── TÀI LIỆU & MINH CHỨNG ĐÃ UPLOAD ── */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3 text-xs">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <FileCheck size={16} className="text-blue-600" />
+                Hồ Sơ & Tài Liệu Minh Chứng Đã Nộp
+              </h4>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
+                {(merged.evidence_files?.length || 0) + (merged.documents?.length || 0)} tệp tin
+              </span>
+            </div>
+
+            {/* Minh chứng hiện trường & hóa đơn (Evidence files) */}
+            {merged.evidence_files && merged.evidence_files.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                  <span>📸 Minh chứng hiện trường, hóa đơn & biên bản ({merged.evidence_files.length})</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {merged.evidence_files.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => openDoc(d.id)}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-blue-100 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-300 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <FileText size={15} className="text-blue-600 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-blue-700 group-hover:underline">
+                            {d.file_name}
+                          </p>
+                          <span className="text-[10px] text-blue-700 font-mono uppercase font-bold">
+                            {d.doc_type}
+                          </span>
+                        </div>
+                      </div>
+                      <ExternalLink size={13} className="text-slate-400 group-hover:text-blue-600 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tài liệu hỗ trợ / CCCD / Hợp đồng (Supporting documents) */}
+            {merged.documents && merged.documents.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                  <span>📄 Hồ sơ cá nhân & Hợp đồng đính kèm ({merged.documents.length})</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {merged.documents.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => openDoc(d.id)}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-100 hover:border-slate-300 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <FileText size={15} className="text-slate-500 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-slate-900 group-hover:underline">
+                            {d.file_name}
+                          </p>
+                          <span className="text-[10px] text-slate-500 font-mono uppercase">
+                            {d.doc_type}
+                          </span>
+                        </div>
+                      </div>
+                      <ExternalLink size={13} className="text-slate-400 group-hover:text-slate-700 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(!merged.documents || merged.documents.length === 0) && (!merged.evidence_files || merged.evidence_files.length === 0) && (
+              <div className="p-4 text-center bg-slate-50 rounded-xl border border-slate-200/80 text-slate-500">
+                <p className="text-xs">Chưa có tệp tin đính kèm cho hồ sơ này.</p>
               </div>
             )}
           </div>
@@ -499,22 +848,27 @@ function DetailModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t flex justify-end gap-2">
+        <div className="px-7 py-4.5 min-h-[68px] border-t border-[#d0d5dd] bg-[#f9f7f0] flex items-center justify-end gap-3 rounded-b-[26px]">
           {merged.status === 'approved' && (merged.amount_approved ?? 0) > 0 && (
             <Button
               variant="outline"
-              size="sm"
               onClick={downloadInvoice}
               disabled={downloadingInvoice}
               title={t('downloadInvoiceHint')}
-              className="text-blue-700 border-blue-200 hover:bg-blue-50"
+              className="rounded-full h-10 px-5 text-sm font-bold text-[#13426f] border-[#d0d5dd] bg-white hover:bg-[#eef6ff] shadow-xs cursor-pointer"
             >
               {downloadingInvoice
-                ? <><Loader2 size={14} className="mr-2 animate-spin" /> {t('downloadingInvoice')}</>
-                : <><Download size={14} className="mr-2" /> {t('downloadInvoice')}</>}
+                ? <><Loader2 size={15} className="mr-2 animate-spin text-[#2e96ff]" /> {t('downloadingInvoice')}</>
+                : <><Download size={15} className="mr-2 text-[#2e96ff]" /> {t('downloadInvoice')}</>}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={onClose}>{tc('close')}</Button>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="rounded-full h-10 px-6 text-sm font-bold text-[#13426f] border-[#d0d5dd] bg-white hover:bg-gray-100 shadow-xs cursor-pointer"
+          >
+            {tc('close')}
+          </Button>
         </div>
       </div>
     </div>
@@ -604,7 +958,7 @@ export function ClaimsClient() {
             <select
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
-              className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs border border-[#d0d5dd] rounded-full px-4 py-2 bg-white text-[#13426f] font-semibold focus:outline-none focus:ring-2 focus:ring-[#2e96ff] shadow-xs cursor-pointer"
             >
               <option value="">{t('filterAll')}</option>
               {STATUSES.map(s => (
@@ -612,60 +966,76 @@ export function ClaimsClient() {
               ))}
             </select>
           </div>
-          <Button size="sm" className="gap-1.5" onClick={() => setShowSubmit(true)}>
-            <Plus size={14} /> {t('submit')}
+          <Button size="sm" className="gap-2" onClick={() => setShowSubmit(true)}>
+            <Plus size={15} className="stroke-[2.5]" />
+            <span>{t('submit')}</span>
           </Button>
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white rounded-[22px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[#d0d5dd] overflow-hidden">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={28} /></div>
+            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-[#2e96ff]" size={28} /></div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center py-14 text-gray-400">
-              <FileText size={36} className="opacity-20 mb-3" />
-              <p className="text-sm">{t('noClaimsYet')}</p>
+            <div className="flex flex-col items-center py-14 text-[#616c8a]">
+              <FileText size={40} className="opacity-25 mb-3 text-[#13426f]" />
+              <p className="text-sm font-medium">{t('noClaimsYet')}</p>
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b">
+                <tr className="bg-[#f9f7f0] border-b border-[#d0d5dd]">
                   {[t('typeCol'), t('amountCol'), 'Tỉnh', t('statusCol'), t('dateCol'), ''].map((h, i) => (
-                    <th key={i} className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">{h}</th>
+                    <th key={i} className="text-left text-xs font-bold text-[#616c8a] px-5 py-3.5 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(c => (
-                  <tr
-                    key={c.id}
-                    className="border-b last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => setSelected(c)}
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-700">{t(`claimTypes.${c.claim_type}`)}</td>
-                    <td className="px-4 py-3 text-gray-800">{fmtVND(c.amount_claimed)}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.province ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={c.status} label={statusLabel(c.status)} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
-                      {new Date(c.created_at).toLocaleDateString('vi-VN')}
-                    </td>
-                    <td className="px-4 py-3 flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                      <ChevronRight size={14} className="text-gray-300 cursor-pointer" onClick={() => setSelected(c)} />
-                      <button
-                        disabled={c.status === 'processing' || deletingId === c.id}
-                        onClick={e => deleteClaim(e, c.id)}
-                        className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title={tc('delete')}
-                      >
-                        {deletingId === c.id
-                          ? <Loader2 size={13} className="animate-spin" />
-                          : <Trash2 size={13} />}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(c => {
+                  const policy = policies.find(p => p.id === c.policy_id);
+                  return (
+                    <tr
+                      key={c.id}
+                      className="border-b border-[#d0d5dd]/70 last:border-b-0 hover:bg-[#bde1f9]/15 cursor-pointer transition-colors"
+                      onClick={() => setSelected(c)}
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-gray-900">
+                          {t(`claimTypes.${c.claim_type}`)}
+                          {policy?.plan_name && <span className="text-gray-600 font-normal"> · {policy.plan_name}</span>}
+                        </p>
+                        {policy ? (
+                          <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 mt-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {getPolicySubjectLabel(policy)}
+                          </span>
+                        ) : c.policy_id ? (
+                          <span className="text-[11px] font-mono text-gray-400 mt-0.5 block">HĐ: #{c.policy_id.slice(-6).toUpperCase()}</span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-gray-800 font-medium">{fmtVND(c.amount_claimed)}</td>
+                      <td className="px-4 py-3 text-gray-600">{c.province ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={c.status} label={statusLabel(c.status)} />
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">
+                        {new Date(c.created_at).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td className="px-4 py-3 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                        <ChevronRight size={14} className="text-gray-300 cursor-pointer" onClick={() => setSelected(c)} />
+                        <button
+                          disabled={c.status === 'processing' || deletingId === c.id}
+                          onClick={e => deleteClaim(e, c.id)}
+                          className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title={tc('delete')}
+                        >
+                          {deletingId === c.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={13} />}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -678,6 +1048,7 @@ export function ClaimsClient() {
           onSuccess={handleSubmitSuccess}
           docs={docs}
           policies={policies}
+          onDocUploaded={load}
         />
       )}
 
@@ -685,6 +1056,7 @@ export function ClaimsClient() {
         <DetailModal
           claim={selected}
           docs={docs}
+          policies={policies}
           onUpdated={load}
           onClose={() => { setSelected(null); load(); }}
         />

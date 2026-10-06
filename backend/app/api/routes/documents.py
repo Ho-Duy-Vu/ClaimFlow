@@ -354,6 +354,24 @@ async def bundle_ocr(
             user_id=str(current_user.id),
             document_ids=doc_ids,
         )
+        # Auto-update user province from consolidated profile
+        profile = result.get("consolidated_profile", {})
+        addr_val = (
+            profile.get("place_of_residence")
+            or profile.get("address")
+            or profile.get("place_of_origin")
+        )
+        if isinstance(addr_val, dict):
+            addr_val = addr_val.get("value")
+        if addr_val and isinstance(addr_val, str):
+            from app.services.geo.risk_engine import detect_province_from_text
+            from app.services.province_mapper import PROVINCE_REGION
+            p = detect_province_from_text(addr_val)
+            if p and current_user.province != p:
+                current_user.province = p
+                current_user.region = PROVINCE_REGION.get(p, current_user.region or "north")
+                await current_user.save()
+                logger.info("Auto-updated user %s province to %s from bundle OCR", current_user.id, p)
     except Exception as e:
         logger.error("Bundle OCR failed: %s", e)
         raise HTTPException(502, f"Bundle OCR failed: {e}") from e

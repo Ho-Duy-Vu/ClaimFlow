@@ -284,6 +284,30 @@ class OCRService:
                 doc.file_hash = file_hash
                 await doc.save()
 
+                # Auto-sync user province if address found in this document
+                try:
+                    from app.models.user import User
+                    from app.services.geo.risk_engine import detect_province_from_text
+                    from app.services.province_mapper import PROVINCE_REGION
+                    addr_val = (
+                        result.get("place_of_residence")
+                        or result.get("address")
+                        or result.get("place_of_origin")
+                    )
+                    if isinstance(addr_val, dict):
+                        addr_val = addr_val.get("value")
+                    if addr_val and isinstance(addr_val, str):
+                        p = detect_province_from_text(addr_val)
+                        if p:
+                            user = await User.get(doc.user_id)
+                            if user and user.province != p:
+                                user.province = p
+                                user.region = PROVINCE_REGION.get(p, user.region or "north")
+                                await user.save()
+                                logger.info("Auto-updated user %s province to %s from doc %s", user.id, p, doc.id)
+                except Exception as sync_err:
+                    logger.debug("Non-critical: Failed syncing user province from doc OCR: %s", sync_err)
+
             return {
                 "data": result,
                 "confidence": confidence,

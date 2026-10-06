@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Activity, AlertCircle, BarChart3, Ban, FileText, Heart,
-  Loader2, RefreshCw, ScrollText, Shield, ShieldOff, Trash2, Upload, Users as UsersIcon, Wallet,
+  Activity, AlertCircle, BarChart3, Ban, Building2, CheckCircle, Clock, CreditCard,
+  DollarSign, FileText, Heart, Layers, Loader2, RefreshCw, ScrollText,
+  Shield, ShieldAlert, ShieldOff, Sliders, Sparkles, Trash2, TrendingUp, Upload,
+  Users as UsersIcon, Wallet, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +15,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import api from '@/lib/api';
+import { getRelationshipLabel } from '@/lib/policy-helpers';
 import type { User } from '@/types';
-
-type TabKey = 'users' | 'userPolicies' | 'analytics' | 'policies' | 'auditLogs' | 'systemHealth';
+type TabKey = 'users' | 'userPolicies' | 'policies' | 'auditLogs' | 'systemHealth';
 
 interface AdminUser extends User {
   created_at: string;
@@ -59,32 +61,25 @@ interface SystemHealth {
   checked_at: string;
 }
 
-interface FullAnalytics {
-  users: { total: number; active: number; reviewers: number };
-  claims: {
-    total: number; approved: number; rejected: number; manual_review: number;
-    processing: number; approval_rate: number; fraud_rate: number;
-  };
-  top_high_risk_provinces: Array<{ name: string; region: string; risk_score: number }>;
-  reviewer_performance: Array<{
-    reviewer_id: string; email: string; full_name: string | null;
-    total_reviewed: number; approved: number; approval_rate: number;
-  }>;
-  daily_claims: Array<{ date: string; count: number }>;
-  region_breakdown: Record<string, number>;
-}
-
 // ── Root ──────────────────────────────────────────────────────────────────────
 
 export function AdminClient() {
   const t = useTranslations('admin');
   const tCommon = useTranslations('common');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const locale = useLocale();
 
   const [tab, setTab] = useState<TabKey>('users');
   const [authChecking, setAuthChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab') as TabKey | null;
+    if (qTab && ['users', 'userPolicies', 'policies', 'auditLogs', 'systemHealth'].includes(qTab)) {
+      setTab(qTab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     (async () => {
@@ -117,27 +112,33 @@ export function AdminClient() {
   const tabs: Array<{ key: TabKey; label: string; icon: typeof UsersIcon }> = [
     { key: 'users', label: t('users'), icon: UsersIcon },
     { key: 'userPolicies', label: t('userPolicies'), icon: Wallet },
-    { key: 'analytics', label: t('analytics'), icon: BarChart3 },
     { key: 'policies', label: t('policies'), icon: FileText },
     { key: 'auditLogs', label: t('auditLogs'), icon: ScrollText },
     { key: 'systemHealth', label: t('systemHealth'), icon: Activity },
   ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-        <Shield size={22} className="text-blue-600" /> {t('title')}
-      </h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-[#2e96ff] bg-[#eef6ff] px-2.5 py-0.5 rounded-full border border-[#2e96ff]/20 mb-1">
+            Quản trị viên
+          </span>
+          <h1 className="text-2xl font-bold text-[#13426f] flex items-center gap-2">
+            <Shield size={22} className="text-[#2e96ff]" /> {t('title')}
+          </h1>
+        </div>
+      </div>
 
-      <div className="border-b border-gray-200 mb-6 flex gap-1 overflow-x-auto">
+      <div className="bg-white/80 p-1.5 rounded-[18px] border border-[#d0d5dd] mb-6 inline-flex gap-1.5 shadow-xs overflow-x-auto no-scrollbar max-w-full">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 text-xs md:text-sm font-bold rounded-full transition-all whitespace-nowrap ${
               tab === key
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-[#2e96ff] text-white shadow-[0_3px_0_0_rgba(154,207,246,0.5)]'
+                : 'text-[#4a5568] hover:text-[#13426f] hover:bg-[#f9f7f0]'
             }`}
           >
             <Icon size={16} /> {label}
@@ -147,7 +148,6 @@ export function AdminClient() {
 
       {tab === 'users' && <UsersTab />}
       {tab === 'userPolicies' && <UserPoliciesTab />}
-      {tab === 'analytics' && <AnalyticsTab />}
       {tab === 'policies' && <PoliciesTab />}
       {tab === 'auditLogs' && <AuditLogsTab />}
       {tab === 'systemHealth' && <SystemHealthTab />}
@@ -237,7 +237,7 @@ function UsersTab() {
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="h-9 px-3 rounded-md border bg-white text-sm"
+          className="h-9 px-3.5 rounded-full border border-[#d0d5dd] bg-white text-xs font-medium shadow-2xs"
         >
           <option value="">{t('allRoles')}</option>
           <option value="user">{t('roleUser')}</option>
@@ -247,71 +247,74 @@ function UsersTab() {
         <select
           value={activeFilter}
           onChange={(e) => setActiveFilter(e.target.value)}
-          className="h-9 px-3 rounded-md border bg-white text-sm"
+          className="h-9 px-3.5 rounded-full border border-[#d0d5dd] bg-white text-xs font-medium shadow-2xs"
         >
           <option value="">{t('allStatus')}</option>
           <option value="true">{t('statusActive')}</option>
           <option value="false">{t('statusInactive')}</option>
         </select>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw size={14} className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
+        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="rounded-full text-xs font-semibold text-[#13426f] border-[#d0d5dd] shadow-xs hover:bg-[#eef6ff]">
+          <RefreshCw size={13} className={`mr-1.5 text-[#2e96ff] ${loading ? 'animate-spin' : ''}`} />
           {tCommon('refresh')}
         </Button>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">
-          <Loader2 className="inline animate-spin mr-2" size={16} />
+          <Loader2 className="inline animate-spin mr-2 text-[#2e96ff]" size={16} />
           {tCommon('loading')}
         </div>
       ) : (
-        <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="bg-white border border-[#d0d5dd] rounded-[22px] overflow-hidden shadow-[0_4px_14px_rgba(0,0,0,0.04)]">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+            <thead className="bg-[#f9f7f0] text-[#13426f] text-xs font-bold uppercase tracking-wider border-b border-[#d0d5dd]">
               <tr>
-                <th className="text-left px-4 py-2">{t('emailCol')}</th>
-                <th className="text-left px-4 py-2">{t('nameCol')}</th>
-                <th className="text-left px-4 py-2">{t('roleCol')}</th>
-                <th className="text-left px-4 py-2">{t('provinceCol')}</th>
-                <th className="text-left px-4 py-2">{t('statusCol')}</th>
-                <th className="text-left px-4 py-2">{t('createdCol')}</th>
-                <th className="text-right px-4 py-2">{t('actionsCol')}</th>
+                <th className="text-left px-4 py-3">{t('emailCol')}</th>
+                <th className="text-left px-4 py-3">{t('nameCol')}</th>
+                <th className="text-left px-4 py-3">{t('roleCol')}</th>
+                <th className="text-left px-4 py-3">{t('provinceCol')}</th>
+                <th className="text-left px-4 py-3">{t('statusCol')}</th>
+                <th className="text-left px-4 py-3">{t('createdCol')}</th>
+                <th className="text-right px-4 py-3">{t('actionsCol')}</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-2 font-mono text-xs">{u.email}</td>
-                  <td className="px-4 py-2">{u.full_name ?? '—'}</td>
-                  <td className="px-4 py-2">
+                <tr key={u.id} className="border-t border-[#d0d5dd]/50 hover:bg-[#f9f7f0]/40 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-[#13426f] font-medium">{u.email}</td>
+                  <td className="px-4 py-3 font-semibold text-[#333333]">{u.full_name ?? '—'}</td>
+                  <td className="px-4 py-3">
                     <select
                       value={u.role}
                       disabled={busy === u.id}
                       onChange={(e) => changeRole(u, e.target.value)}
-                      className="h-8 px-2 rounded border text-xs bg-white"
+                      className="h-8 px-2.5 rounded-full border border-[#d0d5dd] text-xs bg-white font-medium shadow-2xs"
                     >
                       <option value="user">{t('roleUser')}</option>
                       <option value="reviewer">{t('roleReviewer')}</option>
                       <option value="admin">{t('roleAdmin')}</option>
                     </select>
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{u.province ?? '—'}</td>
-                  <td className="px-4 py-2">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                  <td className="px-4 py-3 text-gray-600">{u.province ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border ${
+                      u.is_active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-500 border-gray-200'
                     }`}>
                       {u.is_active ? t('statusActive') : t('statusInactive')}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-xs text-gray-500">
+                  <td className="px-4 py-3 text-xs text-gray-400 font-medium">
                     {new Date(u.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-4 py-3 text-right">
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={busy === u.id}
                       onClick={() => toggleStatus(u)}
+                      className={`rounded-full text-xs font-semibold px-3 py-1 shadow-xs ${
+                        u.is_active ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                      }`}
                     >
                       {u.is_active ? t('deactivate') : t('activate')}
                     </Button>
@@ -357,6 +360,13 @@ interface AdminUserPolicy {
   status: 'active' | 'expired' | 'cancelled' | 'voided';
   start_date: string;
   end_date: string;
+  insured_person?: {
+    name: string;
+    dob?: string;
+    id_number?: string;
+    relationship?: string;
+  } | null;
+  subject_details?: Record<string, any> | null;
   voided_reason: string | null;
   voided_at: string | null;
 }
@@ -451,6 +461,11 @@ function UserPoliciesTab() {
                   <p className="text-xs text-gray-500">
                     {tClaims(`claimTypes.${p.policy_type}` as never)} · <span className="font-mono">{p.policy_number}</span> · {fmtVNDshort(p.coverage_amount)}
                   </p>
+                  {p.insured_person?.name && (
+                    <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 mt-1 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                      👤 Cho: {p.insured_person.name} ({getRelationshipLabel(p.insured_person.relationship)})
+                    </span>
+                  )}
                   {p.status === 'voided' && p.voided_reason && (
                     <p className="text-xs text-purple-700 mt-1">⛔ {p.voided_reason}</p>
                   )}
@@ -567,122 +582,6 @@ function VoidModal({
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Analytics Tab ────────────────────────────────────────────────────────────
-
-function AnalyticsTab() {
-  const t = useTranslations('admin');
-  const tCommon = useTranslations('common');
-  const [data, setData] = useState<FullAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await api.get<FullAnalytics>('/admin/analytics/full');
-      setData(r.data);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) return <div className="text-center py-12"><Loader2 className="inline animate-spin" /></div>;
-  if (!data) return <div className="text-center text-gray-400 py-12">{tCommon('error')}</div>;
-
-  const maxDaily = Math.max(1, ...data.daily_claims.map(d => d.count));
-  const totalRegion = Object.values(data.region_breakdown).reduce((a, b) => a + b, 0) || 1;
-
-  return (
-    <div className="space-y-6">
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricCard label={t('totalUsers')} value={data.users.total} sub={`${data.users.active} ${t('activeUsers').toLowerCase()}`} />
-        <MetricCard label={t('totalClaims')} value={data.claims.total} sub={`${data.claims.approved} approved`} />
-        <MetricCard label={t('approvalRate')} value={`${data.claims.approval_rate}%`} accent="green" />
-        <MetricCard label={t('fraudRate')} value={`${data.claims.fraud_rate}%`} accent="red" />
-      </div>
-
-      {/* Daily chart */}
-      <Section title={t('analytics')} icon={BarChart3}>
-        <div className="flex items-end gap-1 h-32">
-          {data.daily_claims.map((d, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center justify-end group">
-              <div
-                className="w-full bg-blue-500 hover:bg-blue-600 rounded-t transition-colors"
-                style={{ height: `${(d.count / maxDaily) * 100}%`, minHeight: d.count > 0 ? '2px' : '0' }}
-                title={`${d.date}: ${d.count}`}
-              />
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-xs text-gray-400 mt-1">
-          <span>{data.daily_claims[0]?.date}</span>
-          <span>{data.daily_claims.at(-1)?.date}</span>
-        </div>
-      </Section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Region breakdown */}
-        <Section title={t('regionBreakdown')} icon={Heart}>
-          <div className="space-y-2">
-            {Object.entries(data.region_breakdown).map(([region, count]) => (
-              <div key={region} className="flex items-center gap-3">
-                <span className="text-sm w-20 capitalize">{region}</span>
-                <div className="flex-1 h-2 bg-gray-100 rounded overflow-hidden">
-                  <div className="h-full bg-blue-500" style={{ width: `${(count / totalRegion) * 100}%` }} />
-                </div>
-                <span className="text-sm w-12 text-right text-gray-600">{count}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* Top risk provinces */}
-        <Section title={t('topRiskProvinces')} icon={AlertCircle}>
-          <ul className="space-y-2">
-            {data.top_high_risk_provinces.map((p) => (
-              <li key={p.name} className="flex items-center justify-between text-sm">
-                <span>{p.name}</span>
-                <span className="px-2 py-0.5 rounded text-xs bg-red-50 text-red-700 font-semibold">
-                  {p.risk_score}/100
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      </div>
-
-      {/* Reviewer performance */}
-      <Section title={t('reviewerPerf')} icon={UsersIcon}>
-        <table className="w-full text-sm">
-          <thead className="text-xs text-gray-500 border-b">
-            <tr>
-              <th className="text-left py-2">{t('emailCol')}</th>
-              <th className="text-right py-2">{t('totalReviewed')}</th>
-              <th className="text-right py-2">{t('approvedCol')}</th>
-              <th className="text-right py-2">{t('approvalRate')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.reviewer_performance.map((r) => (
-              <tr key={r.reviewer_id} className="border-b last:border-0">
-                <td className="py-2 font-mono text-xs">{r.email}</td>
-                <td className="py-2 text-right">{r.total_reviewed}</td>
-                <td className="py-2 text-right">{r.approved}</td>
-                <td className="py-2 text-right font-semibold text-green-600">{r.approval_rate}%</td>
-              </tr>
-            ))}
-            {data.reviewer_performance.length === 0 && (
-              <tr><td colSpan={4} className="py-4 text-center text-gray-400">—</td></tr>
-            )}
-          </tbody>
-        </table>
-      </Section>
     </div>
   );
 }
@@ -1059,23 +958,23 @@ function SystemHealthTab() {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function MetricCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: 'green' | 'red' | 'blue' }) {
-  const color = accent === 'green' ? 'text-green-600'
-    : accent === 'red' ? 'text-red-600'
-    : 'text-blue-600';
+  const color = accent === 'green' ? 'text-emerald-600'
+    : accent === 'red' ? 'text-rose-600'
+    : 'text-[#2e96ff]';
   return (
-    <div className="bg-white border rounded-xl p-4">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    <div className="bg-white border border-[#d0d5dd] rounded-[22px] p-5 shadow-[0_4px_14px_rgba(0,0,0,0.04)] hover:shadow-[0_7px_0_0_rgba(154,207,246,0.5)] hover:border-[#2e96ff] transition-all">
+      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+      <p className={`text-2xl font-bold mt-1.5 ${color}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-400 mt-1 font-medium">{sub}</p>}
     </div>
   );
 }
 
 function Section({ title, icon: Icon, children }: { title: string; icon: typeof BarChart3; children: React.ReactNode }) {
   return (
-    <div className="bg-white border rounded-xl p-4">
-      <h3 className="font-semibold mb-3 flex items-center gap-2">
-        <Icon size={16} className="text-blue-600" /> {title}
+    <div className="bg-white border border-[#d0d5dd] rounded-[22px] p-6 shadow-[0_4px_14px_rgba(0,0,0,0.04)]">
+      <h3 className="font-bold text-base text-[#13426f] mb-4 flex items-center gap-2">
+        <Icon size={18} className="text-[#2e96ff]" /> {title}
       </h3>
       {children}
     </div>

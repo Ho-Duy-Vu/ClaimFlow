@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PROVINCES } from '@/lib/provinces';
 import api from '@/lib/api';
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -24,7 +23,6 @@ export default function RegisterPage() {
     full_name: '',
     email: '',
     password: '',
-    province: '',
   });
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState('');
@@ -104,23 +102,6 @@ export default function RegisterPage() {
               required
             />
             {fieldError && <p className="text-red-500 text-xs mt-1">{fieldError}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="province">{t('province')}</Label>
-            <select
-              id="province"
-              value={form.province}
-              onChange={set('province')}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">— Chọn tỉnh / thành phố —</option>
-              {PROVINCES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>

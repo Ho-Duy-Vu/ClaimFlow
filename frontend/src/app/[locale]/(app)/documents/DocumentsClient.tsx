@@ -474,14 +474,14 @@ export function DocumentsClient() {
       {/* ── Left panel ── */}
       <div className="w-72 shrink-0 flex flex-col gap-3">
         {/* Upload zone */}
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{t('upload')}</p>
+        <div className="bg-white rounded-[22px] border border-[#d0d5dd] shadow-card p-5">
+          <p className="text-xs font-bold text-[#13426f] uppercase tracking-wider mb-3 pl-0.5">{t('upload')}</p>
 
           <div className="mb-3">
-            <Label className="text-xs text-gray-600 mb-1 block">{t('docType')}</Label>
+            <Label className="text-xs font-bold text-[#13426f] mb-1.5 block">{t('docType')}</Label>
             <select
               value={docType} onChange={e => setDocType(e.target.value)}
-              className="w-full text-sm border rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-xs font-medium border border-[#d0d5dd] rounded-full px-3.5 py-1.5 h-9 text-[#13426f] bg-white focus:outline-none focus:border-[#2e96ff]"
             >
               {DOC_TYPES.map(d => (
                 <option key={d.value} value={d.value}>{t(d.labelKey as Parameters<typeof t>[0])}</option>
@@ -490,55 +490,55 @@ export function DocumentsClient() {
           </div>
 
           <div
-            className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 py-5 cursor-pointer transition-colors ${
-              dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+            className={`border-2 border-dashed rounded-[18px] flex flex-col items-center justify-center gap-2 py-5 cursor-pointer transition-colors ${
+              dragging ? 'border-[#2e96ff] bg-[#2e96ff]/10' : 'border-[#d0d5dd] bg-[#f9f7f0]/70 hover:border-[#2e96ff] hover:bg-[#f9f7f0]'
             } ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={e => { e.preventDefault(); setDragging(false); doUploadBulk(Array.from(e.dataTransfer.files)); }}
             onClick={() => fileInputRef.current?.click()}
           >
-            {uploading ? <Loader2 className="animate-spin text-blue-500" size={22} /> : <Upload className="text-gray-400" size={22} />}
-            <p className="text-xs text-gray-500 text-center px-2">{t('dragDrop')}</p>
-            <p className="text-xs text-gray-400">{t('multiHint')} · {t('maxSize')}</p>
+            {uploading ? <Loader2 className="animate-spin text-[#2e96ff]" size={22} /> : <Upload className="text-[#2e96ff]" size={22} />}
+            <p className="text-xs text-[#13426f] font-semibold text-center px-2">{t('dragDrop')}</p>
+            <p className="text-[11px] text-[#616c8a]">{t('multiHint')} · {t('maxSize')}</p>
           </div>
           <input
             ref={fileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden"
             onChange={e => { doUploadBulk(Array.from(e.target.files ?? [])); e.target.value = ''; }}
           />
-          {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
+          {uploadError && <p className="text-xs text-red-600 mt-2 font-medium">{uploadError}</p>}
 
-          {/* Upload queue — accumulates; remove an item (and its uploaded doc) with ✕ */}
+          {/* Upload queue */}
           {uploadQueue.length > 0 && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-medium text-gray-500">{t('uploadedList')} ({uploadQueue.length})</p>
+            <div className="mt-3 p-3 rounded-[16px] border border-[#d0d5dd] bg-[#f9f7f0]">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-[#13426f]">{t('uploadedList')} ({uploadQueue.length})</p>
                 <div className="flex items-center gap-2">
                   {uploadQueue.some(i => i.status === 'done' && i.docId) && (
                     <button
                       onClick={() => uploadQueue.filter(i => i.status === 'done' && i.docId).forEach(i => detectQueued(i.key, i.docId!))}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                      className="text-xs font-bold text-[#2e96ff] hover:underline inline-flex items-center gap-1"
                     >
                       <Sparkles size={11} /> {t('detectAll')}
                     </button>
                   )}
-                  <button onClick={() => setUploadQueue([])} className="text-xs text-gray-400 hover:text-gray-600">
+                  <button onClick={() => setUploadQueue([])} className="text-xs text-[#616c8a] hover:text-[#13426f]">
                     {t('clearList')}
                   </button>
                 </div>
               </div>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {uploadQueue.map(item => (
-                  <li key={item.key} className="flex items-center gap-2 text-xs">
-                    {item.status === 'uploading' && <Loader2 size={11} className="animate-spin text-blue-500 shrink-0" />}
-                    {item.status === 'done' && <CheckCircle size={11} className="text-green-500 shrink-0" />}
+                  <li key={item.key} className="flex items-center gap-2 text-xs bg-white rounded-lg p-1.5 border border-[#d0d5dd]/60">
+                    {item.status === 'uploading' && <Loader2 size={11} className="animate-spin text-[#2e96ff] shrink-0" />}
+                    {item.status === 'done' && <CheckCircle size={11} className="text-emerald-600 shrink-0" />}
                     {item.status === 'error' && <AlertTriangle size={11} className="text-red-500 shrink-0" />}
-                    <span className="truncate text-gray-600 flex-1">{item.name}</span>
+                    <span className="truncate text-[#13426f] font-medium flex-1">{item.name}</span>
                     {item.status === 'done' && item.docId && (
                       <button
                         onClick={() => detectQueued(item.key, item.docId!)}
                         title={t('detectBtn')}
-                        className="shrink-0 inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium"
+                        className="shrink-0 inline-flex items-center gap-1 text-[#2e96ff] hover:underline font-bold text-[11px]"
                       >
                         <Sparkles size={11} /> {t('detectShort')}
                       </button>
@@ -547,7 +547,7 @@ export function DocumentsClient() {
                       <button
                         onClick={() => removeQueueItem(item.key, item.docId)}
                         title={item.docId ? tc('delete') : t('removeFromList')}
-                        className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+                        className="shrink-0 text-[#616c8a] hover:text-red-500 transition-colors"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -560,37 +560,37 @@ export function DocumentsClient() {
         </div>
 
         {/* Document list */}
-        <div className="bg-white rounded-xl shadow-sm border flex-1 overflow-hidden flex flex-col">
-          <div className="p-3 border-b flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="bg-white rounded-[22px] border border-[#d0d5dd] shadow-card flex-1 overflow-hidden flex flex-col">
+          <div className="p-3.5 border-b border-[#d0d5dd] bg-[#f9f7f0]/60 flex items-center justify-between">
+            <p className="text-xs font-bold text-[#13426f] uppercase tracking-wide">
               {t('listTitle')} ({detectedDocs.length})
             </p>
             {mergeIds.size > 0 && (
-              <button onClick={() => setMergeIds(new Set())} className="text-xs text-gray-400 hover:text-gray-600">
+              <button onClick={() => setMergeIds(new Set())} className="text-xs font-medium text-[#616c8a] hover:text-[#13426f]">
                 {t('clearMerge')}
               </button>
             )}
           </div>
 
           {loadingList ? (
-            <div className="flex justify-center py-6"><Loader2 className="animate-spin text-gray-400" size={20} /></div>
+            <div className="flex justify-center py-6"><Loader2 className="animate-spin text-[#2e96ff]" size={20} /></div>
           ) : detectedDocs.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-gray-400">
+            <div className="flex flex-col items-center py-8 text-[#616c8a]">
               <FileText size={28} className="opacity-30 mb-2" />
               <p className="text-xs">{t('empty')}</p>
             </div>
           ) : (
-            <ul className="overflow-y-auto flex-1">
+            <ul className="overflow-y-auto flex-1 divide-y divide-[#d0d5dd]/40">
               {detectedDocs.map(doc => (
-                <li key={doc.document_id} className={`flex items-stretch border-b last:border-b-0 ${selectedId === doc.document_id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                <li key={doc.document_id} className={`flex items-stretch transition-colors ${selectedId === doc.document_id ? 'bg-[#2e96ff]/10' : 'hover:bg-[#f9f7f0]'}`}>
                   {/* Merge checkbox */}
                   <button
-                    className="flex items-center px-2 shrink-0"
+                    className="flex items-center px-2.5 shrink-0"
                     onClick={e => { e.stopPropagation(); toggleMergeId(doc.document_id); }}
                     title={t('merge')}
                   >
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                      mergeIds.has(doc.document_id) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 hover:border-blue-400'
+                    <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-colors ${
+                      mergeIds.has(doc.document_id) ? 'bg-[#2e96ff] border-[#2e96ff]' : 'border-[#d0d5dd] hover:border-[#2e96ff]'
                     }`}>
                       {mergeIds.has(doc.document_id) && <CheckCircle size={10} className="text-white" />}
                     </div>
@@ -598,24 +598,24 @@ export function DocumentsClient() {
                   {/* Doc info */}
                   <button className="flex-1 text-left px-2 py-2.5 transition-colors min-w-0" onClick={() => selectDoc(doc.document_id)}>
                     <div className="flex items-center gap-1.5">
-                      <span className={`shrink-0 w-7 h-5 rounded text-center text-xs font-bold leading-5 ${doc.file_type === 'pdf' ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-500'}`}>
+                      <span className={`shrink-0 w-7 h-5 rounded-md text-center text-xs font-black leading-5 ${doc.file_type === 'pdf' ? 'bg-red-100 text-red-700' : 'bg-[#2e96ff]/15 text-[#2e96ff]'}`}>
                         {doc.file_type === 'pdf' ? 'PDF' : 'IMG'}
                       </span>
-                      <p className="text-xs font-medium text-gray-800 truncate">{doc.file_name}</p>
+                      <p className="text-xs font-bold text-[#13426f] truncate">{doc.file_name}</p>
                     </div>
-                    <div className="flex items-center justify-between mt-1 pl-9">
-                      <span className="text-xs text-gray-400">{formatFileSize(doc.file_size_kb)}</span>
+                    <div className="flex items-center justify-between mt-1 pl-8">
+                      <span className="text-[11px] text-[#616c8a]">{formatFileSize(doc.file_size_kb)}</span>
                       <StatusBadge status={doc.processing_status} label={statusLabels[doc.processing_status] ?? doc.processing_status} />
                     </div>
                   </button>
                   {/* Delete */}
                   <button
-                    className="px-2 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
+                    className="px-2.5 text-[#616c8a]/50 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
                     onClick={() => deleteDoc(doc.document_id)}
                     disabled={deletingId === doc.document_id}
                     title={tc('delete')}
                   >
-                    {deletingId === doc.document_id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                    {deletingId === doc.document_id ? <Loader2 size={13} className="animate-spin text-red-500" /> : <Trash2 size={13} />}
                   </button>
                 </li>
               ))}
@@ -624,9 +624,9 @@ export function DocumentsClient() {
 
           {/* Merge + Bundle OCR buttons */}
           {mergeIds.size >= 2 && (
-            <div className="p-3 border-t bg-blue-50 space-y-2">
+            <div className="p-3 border-t border-[#d0d5dd] bg-[#f9f7f0] space-y-2">
               <Button
-                className="w-full text-xs gap-1.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600"
+                className="w-full text-xs gap-1.5 rounded-full bg-[#2e96ff] text-white shadow-[0_3px_0_0_rgba(154,207,246,0.5)] active:translate-y-0.5 hover:bg-[#2582df] font-bold"
                 size="sm"
                 onClick={doBundleOcr} disabled={bundling || merging}
               >
@@ -634,13 +634,13 @@ export function DocumentsClient() {
                 {t('bundleBtn')} ({mergeIds.size})
               </Button>
               <Button
-                className="w-full text-xs gap-1.5" size="sm" variant="outline"
+                className="w-full text-xs gap-1.5 rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold" size="sm" variant="outline"
                 onClick={doMerge} disabled={merging || bundling}
               >
                 {merging ? <Loader2 size={13} className="animate-spin" /> : <GitMerge size={13} />}
                 {t('mergeBtn')} ({mergeIds.size})
               </Button>
-              {bundleError && <p className="text-xs text-red-500">{bundleError}</p>}
+              {bundleError && <p className="text-xs text-red-600 font-medium">{bundleError}</p>}
             </div>
           )}
         </div>
@@ -679,29 +679,31 @@ export function DocumentsClient() {
           </ErrorBoundary>
         ) : mergeResult ? (
           <ErrorBoundary>
-            <div className="bg-white rounded-xl shadow-sm border h-full flex flex-col">
-              <div className="flex items-center justify-between px-5 py-3 border-b">
+            <div className="bg-white rounded-[22px] border border-[#d0d5dd] shadow-card h-full flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#d0d5dd] bg-[#f9f7f0]/60">
                 <div className="flex items-center gap-2">
-                  <GitMerge size={16} className="text-blue-500" />
-                  <h2 className="font-semibold text-gray-900 text-sm">{t('mergeResult')}</h2>
-                  <span className="text-xs text-gray-400">
+                  <div className="w-7 h-7 rounded-full bg-[#2e96ff]/10 text-[#2e96ff] flex items-center justify-center">
+                    <GitMerge size={15} />
+                  </div>
+                  <h2 className="font-bold text-[#13426f] text-sm">{t('mergeResult')}</h2>
+                  <span className="text-xs text-[#616c8a]">
                     {t('mergedFrom').replace('{count}', String(mergeResult.source_doc_ids.length))}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   {Object.keys(mergeResult.conflicts).length > 0 && (
-                    <Button size="sm" className="text-xs" onClick={saveMergeConflicts} disabled={savingConflicts}>
+                    <Button size="sm" className="text-xs rounded-full bg-[#2e96ff] text-white font-bold px-3 shadow-xs" onClick={saveMergeConflicts} disabled={savingConflicts}>
                       {savingConflicts && <Loader2 size={12} className="animate-spin mr-1" />}
                       {tc('save')}
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" className="text-xs" onClick={() => {
+                  <Button variant="outline" size="sm" className="text-xs rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold" onClick={() => {
                     setMergeResult(null); setMergeIds(new Set());
                     selectDoc(mergeResult.merged_document_id);
                   }}>
                     {t('viewMerged')}
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs" onClick={() => { setMergeResult(null); setMergeIds(new Set()); }}>
+                  <Button variant="outline" size="sm" className="text-xs rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold px-2" onClick={() => { setMergeResult(null); setMergeIds(new Set()); }}>
                     <X size={12} />
                   </Button>
                 </div>
@@ -713,13 +715,13 @@ export function DocumentsClient() {
                   <div>
                     <div className="flex items-center gap-2 mb-3">
                       <AlertTriangle size={14} className="text-orange-500" />
-                      <p className="text-sm font-semibold text-orange-700">{t('conflicts')} ({Object.keys(mergeResult.conflicts).length})</p>
+                      <p className="text-sm font-bold text-orange-800">{t('conflicts')} ({Object.keys(mergeResult.conflicts).length})</p>
                     </div>
-                    <p className="text-xs text-gray-500 mb-3">{t('conflictHint')}</p>
+                    <p className="text-xs text-[#333333]/70 mb-3">{t('conflictHint')}</p>
                     <div className="space-y-3">
                       {Object.entries(mergeResult.conflicts).map(([key, conflict]) => (
-                        <div key={key} className="rounded-lg border border-orange-100 bg-orange-50 p-3">
-                          <p className="text-xs font-semibold text-gray-700 capitalize mb-2">{key.replace(/_/g, ' ')}</p>
+                        <div key={key} className="rounded-[16px] border border-orange-200 bg-orange-50/70 p-3.5">
+                          <p className="text-xs font-bold text-[#13426f] capitalize mb-2">{key.replace(/_/g, ' ')}</p>
                           <div className="space-y-1.5">
                             {conflict.values.map((val, idx) => {
                               const srcDoc = docs.find(d => d.document_id === conflict.source_docs[idx]);
@@ -731,12 +733,12 @@ export function DocumentsClient() {
                                     value={String(val)}
                                     checked={conflictChoices[key] === String(val)}
                                     onChange={() => setConflictChoices(prev => ({ ...prev, [key]: String(val) }))}
-                                    className="mt-0.5 accent-blue-500"
+                                    className="mt-0.5 accent-[#2e96ff]"
                                   />
                                   <div>
-                                    <span className="text-xs text-gray-800 font-medium">{String(val)}</span>
+                                    <span className="text-xs text-[#13426f] font-medium">{String(val)}</span>
                                     {srcDoc && (
-                                      <span className="text-xs text-gray-400 ml-1.5 truncate">({srcDoc.file_name})</span>
+                                      <span className="text-xs text-[#616c8a] ml-1.5 truncate">({srcDoc.file_name})</span>
                                     )}
                                   </div>
                                 </label>
@@ -748,28 +750,28 @@ export function DocumentsClient() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                    <CheckCircle size={14} className="text-green-500" />
-                    <p className="text-sm text-green-700">{t('noConflicts')}</p>
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-[16px] border border-emerald-200">
+                    <CheckCircle size={15} className="text-emerald-600" />
+                    <p className="text-xs font-bold text-emerald-800">{t('noConflicts')}</p>
                   </div>
                 )}
 
                 {/* Merged data table */}
-                <div className="rounded-xl border overflow-hidden">
+                <div className="rounded-[18px] border border-[#d0d5dd] overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50 border-b">
-                        <th className="text-left text-xs font-semibold text-gray-500 px-4 py-2.5 uppercase tracking-wide w-1/3">{t('fieldCol')}</th>
-                        <th className="text-left text-xs font-semibold text-gray-500 px-4 py-2.5 uppercase tracking-wide">{t('valueCol')}</th>
+                      <tr className="bg-[#f9f7f0] border-b border-[#d0d5dd]">
+                        <th className="text-left text-xs font-bold text-[#13426f] px-4 py-2.5 uppercase tracking-wide w-1/3">{t('fieldCol')}</th>
+                        <th className="text-left text-xs font-bold text-[#13426f] px-4 py-2.5 uppercase tracking-wide">{t('valueCol')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {Object.entries(mergeResult.merged_data).filter(([k]) => k !== 'overall_confidence').map(([key, val]) => (
-                        <tr key={key} className="border-b last:border-b-0 hover:bg-gray-50">
-                          <td className="px-4 py-2.5 text-xs font-medium text-gray-600 capitalize">{key.replace(/_/g, ' ')}</td>
-                          <td className="px-4 py-2.5 text-xs text-gray-800">
+                        <tr key={key} className="border-b border-[#d0d5dd]/40 last:border-b-0 hover:bg-[#f9f7f0]/50">
+                          <td className="px-4 py-2.5 text-xs font-medium text-[#616c8a] capitalize">{key.replace(/_/g, ' ')}</td>
+                          <td className="px-4 py-2.5 text-xs text-[#13426f] font-medium">
                             {conflictChoices[key] !== undefined
-                              ? <span className="text-blue-700 font-medium">{conflictChoices[key]}</span>
+                              ? <span className="text-[#2e96ff] font-bold">{conflictChoices[key]}</span>
                               : String(val ?? '')}
                           </td>
                         </tr>
@@ -781,22 +783,22 @@ export function DocumentsClient() {
             </div>
           </ErrorBoundary>
         ) : !selectedId ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-white rounded-xl border shadow-sm">
+          <div className="h-full flex flex-col items-center justify-center text-[#616c8a] bg-white rounded-[22px] border border-[#d0d5dd] shadow-card">
             <FileText size={36} className="opacity-20 mb-3" />
-            <p className="text-sm">{t('selectHint')}</p>
+            <p className="text-xs font-medium">{t('selectHint')}</p>
           </div>
         ) : (
           /* OCR detail panel */
           <ErrorBoundary>
-            <div className="bg-white rounded-xl shadow-sm border h-full flex flex-col">
-              <div className="flex items-center justify-between px-5 py-3 border-b">
+            <div className="bg-white rounded-[22px] border border-[#d0d5dd] shadow-card h-full flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#d0d5dd] bg-[#f9f7f0]/60">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-bold ${selectedDoc?.file_type === 'pdf' ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-500'}`}>
+                  <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-black ${selectedDoc?.file_type === 'pdf' ? 'bg-red-100 text-red-700' : 'bg-[#2e96ff]/15 text-[#2e96ff]'}`}>
                     {selectedDoc?.file_type?.toUpperCase()}
                   </span>
                   <div className="min-w-0">
-                    <h2 className="font-semibold text-gray-900 text-sm truncate">{selectedDoc?.file_name}</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <h2 className="font-bold text-[#13426f] text-sm truncate">{selectedDoc?.file_name}</h2>
+                    <p className="text-[11px] text-[#616c8a] mt-0.5">
                       {selectedDoc && formatFileSize(selectedDoc.file_size_kb)} · <span className="capitalize">{selectedDoc?.doc_type?.replace(/_/g, ' ')}</span>
                     </p>
                   </div>
@@ -804,23 +806,23 @@ export function DocumentsClient() {
                 <div className="flex items-center gap-2 shrink-0">
                   {ocr?.processing_status === 'done' && (
                     <>
-                      <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => exportDoc('json')}><Download size={12} /> JSON</Button>
-                      <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => exportDoc('markdown')}><Download size={12} /> MD</Button>
-                      <Button size="sm" className="text-xs gap-1 bg-green-600 hover:bg-green-700" onClick={() => setShowInsuranceReg(true)}>
-                        <ShieldPlus size={12} /> {t('registerInsuranceBtn')}
+                      <Button variant="outline" size="sm" className="text-xs gap-1 rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold" onClick={() => exportDoc('json')}><Download size={12} /> JSON</Button>
+                      <Button variant="outline" size="sm" className="text-xs gap-1 rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold" onClick={() => exportDoc('markdown')}><Download size={12} /> MD</Button>
+                      <Button size="sm" className="text-xs gap-1 rounded-full bg-[#2e96ff] hover:bg-[#2582df] text-white shadow-[0_3px_0_0_rgba(154,207,246,0.5)] active:translate-y-0.5 font-bold" onClick={() => setShowInsuranceReg(true)}>
+                        <ShieldPlus size={13} /> {t('registerInsuranceBtn')}
                       </Button>
                       {!editMode ? (
-                        <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => {
+                        <Button variant="outline" size="sm" className="text-xs gap-1 rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold" onClick={() => {
                           const init: Record<string, string> = {};
                           dataEntries.forEach(([k, v]) => { init[k] = fieldValue(v); });
                           setEditFields(init); setEditMode(true);
                         }}><Pencil size={12} /> {tc('edit')}</Button>
                       ) : (
                         <>
-                          <Button size="sm" className="text-xs" onClick={saveFields} disabled={saving}>
+                          <Button size="sm" className="text-xs rounded-full bg-[#2e96ff] text-white font-bold" onClick={saveFields} disabled={saving}>
                             {saving && <Loader2 size={12} className="animate-spin mr-1" />}{tc('save')}
                           </Button>
-                          <Button variant="outline" size="sm" className="text-xs" onClick={() => setEditMode(false)}><X size={12} /></Button>
+                          <Button variant="outline" size="sm" className="text-xs rounded-full border-[#d0d5dd] text-[#13426f]" onClick={() => setEditMode(false)}><X size={12} /></Button>
                         </>
                       )}
                     </>
@@ -879,16 +881,18 @@ export function DocumentsClient() {
 
                     {/* Uploaded but not yet detected — user must confirm to run OCR */}
                     {ocr?.processing_status === 'pending' && (
-                      <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                      <div className="mb-5 rounded-[18px] border border-[#2e96ff]/30 bg-[#2e96ff]/5 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-start gap-2">
-                            <FileText className="text-blue-500 mt-0.5" size={16} />
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#2e96ff]/10 text-[#2e96ff] flex items-center justify-center shrink-0 mt-0.5">
+                              <FileText size={16} />
+                            </div>
                             <div>
-                              <p className="text-sm font-semibold text-blue-800">{t('detectTitle')}</p>
-                              <p className="text-xs text-blue-600 mt-0.5">{t('detectHint')}</p>
+                              <p className="text-sm font-bold text-[#13426f]">{t('detectTitle')}</p>
+                              <p className="text-xs text-[#333333]/70 mt-0.5">{t('detectHint')}</p>
                             </div>
                           </div>
-                          <Button size="sm" className="text-xs shrink-0 gap-1.5"
+                          <Button size="sm" className="text-xs shrink-0 gap-1.5 rounded-full bg-[#2e96ff] hover:bg-[#2582df] text-white shadow-[0_3px_0_0_rgba(154,207,246,0.5)] active:translate-y-0.5 font-bold px-4"
                             onClick={async () => {
                               if (!selectedId) return;
                               try {
@@ -905,20 +909,20 @@ export function DocumentsClient() {
                     )}
 
                     {ocr?.processing_status === 'processing' && (
-                      <div className="mb-5 rounded-xl border bg-gray-50 p-4">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{t('processing')}</p>
+                      <div className="mb-5 rounded-[18px] border border-[#d0d5dd] bg-[#f9f7f0] p-4">
+                        <p className="text-xs font-bold text-[#13426f] uppercase tracking-wide mb-3">{t('processing')}</p>
                         <OCRProcessing steps={stepsByStatus(ocr.processing_status)} />
                       </div>
                     )}
 
                     {ocr?.processing_status === 'failed' && (
-                      <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
+                      <div className="mb-5 rounded-[18px] border border-red-200 bg-red-50/80 p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <AlertTriangle className="text-red-500" size={16} />
-                            <p className="text-sm font-medium text-red-700">{t('ocrFailed')}</p>
+                            <p className="text-sm font-bold text-red-700">{t('ocrFailed')}</p>
                           </div>
-                          <Button size="sm" variant="outline" className="text-xs border-red-300 text-red-600 hover:bg-red-50"
+                          <Button size="sm" variant="outline" className="text-xs rounded-full border-red-300 text-red-700 hover:bg-red-100 font-bold"
                             onClick={async () => {
                               if (!selectedId) return;
                               try {
@@ -931,32 +935,32 @@ export function DocumentsClient() {
                             {t('retry')}
                           </Button>
                         </div>
-                        <p className="text-xs text-red-500 mt-1">{t('retryHint')}</p>
+                        <p className="text-xs text-red-600 mt-1">{t('retryHint')}</p>
                       </div>
                     )}
 
                     {ocr?.processing_status === 'done' && (
                       <div className="flex items-center gap-3 mb-4">
                         {ocr.ocr_confidence !== null && (
-                          <span className="text-xs text-gray-500">{t('confidence')}:{' '}
-                            <span className="font-semibold text-gray-800">{Math.round(ocr.ocr_confidence * 100)}%</span>
+                          <span className="text-xs text-[#616c8a]">{t('confidence')}:{' '}
+                            <span className="font-bold text-[#13426f]">{Math.round(ocr.ocr_confidence * 100)}%</span>
                           </span>
                         )}
                         {ocr.needs_manual_review && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">
-                            <AlertTriangle size={10} /> {t('needsReview')}
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                            <AlertTriangle size={11} /> {t('needsReview')}
                           </span>
                         )}
                       </div>
                     )}
 
                     {ocr?.processing_status === 'done' && dataEntries.length > 0 && (
-                      <div className="rounded-xl border overflow-hidden">
+                      <div className="rounded-[18px] border border-[#d0d5dd] overflow-hidden">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="bg-gray-50 border-b">
-                              <th className="text-left text-xs font-semibold text-gray-500 px-4 py-2.5 uppercase tracking-wide w-1/3">{t('fieldCol')}</th>
-                              <th className="text-left text-xs font-semibold text-gray-500 px-4 py-2.5 uppercase tracking-wide">{t('valueCol')}</th>
+                            <tr className="bg-[#f9f7f0] border-b border-[#d0d5dd]">
+                              <th className="text-left text-xs font-bold text-[#13426f] px-4 py-2.5 uppercase tracking-wide w-1/3">{t('fieldCol')}</th>
+                              <th className="text-left text-xs font-bold text-[#13426f] px-4 py-2.5 uppercase tracking-wide">{t('valueCol')}</th>
                             </tr>
                           </thead>
                           <tbody>

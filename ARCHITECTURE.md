@@ -492,6 +492,159 @@ health / life / property / vehicle / disaster / income
 
 ---
 
+## Quyết định 21: Cơ chế nộp chứng từ bồi thường 2 nguồn (Dual-source Claim Evidence)
+
+**Vấn đề:** 
+Trước đây, form nộp yêu cầu bồi thường (`ClaimSubmitWizard`) chỉ cho phép tích chọn từ các tài liệu đã có sẵn trong trang Quản lý Tài liệu. Nếu người dùng vừa gặp tai nạn/thiên tai và có ảnh chụp hiện trường hoặc hóa đơn viện phí mới, họ phải rời khỏi form bồi thường, sang trang Tài liệu upload, chờ OCR, rồi mới quay lại form bồi thường. Điều này làm gián đoạn trải nghiệm người dùng nghiêm trọng.
+
+**Giải pháp — Kiến trúc 2 nguồn đồng bộ:**
+1. **Upload trực tiếp (Nguồn chính):** Tích hợp vùng kéo thả (Dropzone) chuyên dụng ngay tại Bước 2 (Chứng từ). Nhận file ảnh (JPG, PNG) và văn bản (PDF) đến 20MB, đẩy thẳng vào API `/documents/upload` với `auto_process: true`, tự động gán `document_id` vào mảng `evidence_document_ids`.
+2. **Kho tài liệu OCR sẵn có (Nguồn phụ / đồng bộ):** Khối collapsible cho phép chọn lại các giấy tờ cá nhân/xe cộ đã upload trước đó mà không cần upload lại.
+3. **Đồng bộ hóa:** Cả 2 luồng đều tạo ra đối tượng `DocumentEmbed` đồng nhất trong MongoDB (`evidence_files`), đồng thời gọi callback làm mới danh sách tài liệu toàn app.
+
+---
+
+## Quyết định 22: Chuẩn hóa WGS84 GeoJSON & Leaflet MapController cho 63 tỉnh thành
+
+**Vấn đề:** 
+1. Bản đồ Leaflet trước đây bị lỗi render dở dang (chỉ hiển thị một phần góc hoặc xám ngắt) do Leaflet tính toán kích thước container trước khi CSS flexbox hoàn tất layout.
+2. Dữ liệu nguồn Highcharts bị thiếu tỉnh Đồng Nai do Highcharts đặt tên trường là "Southeast" (hc-a2: DN), dẫn đến việc loại nhầm khi convert sang GeoJSON, để lại khoảng trống ở miền Nam.
+3. Tên tỉnh ở một số địa phương không khớp (Huế vs Thừa Thiên Huế, Ho Chi Minh city vs TP. Hồ Chí Minh).
+
+**Giải pháp:**
+1. **Hoàn thiện GeoJSON 63 tỉnh chuẩn WGS84:** Cập nhật script `build_vn_geojson.py` nhận diện chính xác 63/63 tỉnh thành Việt Nam, gán tên chuẩn hóa tiếng Việt trùng khớp với database `GeoRisk`.
+2. **Component `MapController` giải quyết lỗi render:** Sử dụng `useMap()` trong React-Leaflet để gọi `map.invalidateSize()` ở các mốc 0ms, 150ms, 500ms và lắng nghe sự kiện `resize` của cửa sổ.
+3. **Lọc nhiệt rủi ro theo từng loại thiên tai (Disaster Layer Filter):** Cho phép người dùng chuyển đổi linh hoạt giữa các lớp rủi ro: Bão, Lũ lụt, Sạt lở, Ngập úng, Hạn hán, giúp trực quan hóa chính xác các vùng chịu ảnh hưởng đặc thù (ví dụ: miền Trung đỏ rực khi chọn Bão, ĐBSCL đỏ khi chọn Ngập úng).
+4. **Tile server Carto Voyager:** Sử dụng CDN Carto Voyager tốc độ cao, tông màu sáng trung tính làm nền giúp các polygon rủi ro nổi bật rõ ràng, kèm tùy chọn chuyển đổi sang OpenStreetMap.
+
+---
+
+## Quyết định 23: Tự động cập nhật Khu vực cư trú từ OCR & Chatbot Actionable Navigation
+
+**Vấn đề:**
+1. **Độ trễ/lệch địa chỉ người dùng:** Người dùng tải lên nhiều loại hồ sơ (CCCD, Bằng lái xe, Cà vẹt xe...), địa chỉ có thể khác nhau hoặc thông tin tỉnh/thành phố trong `user.province` bị trống/lỗi thời, khiến Chatbot và hệ thống gợi ý gói bảo hiểm không đúng thực tế rủi ro địa phương.
+2. **Lỗi định dạng Markdown thô:** Chatbot render tin nhắn với `whitespace-pre-wrap` nguyên bản, dẫn đến việc lộ các ký tự Markdown như `1. **Bảo hiểm Thiên tai**: ...` gây mất thẩm mỹ.
+3. **Thiếu tính liên kết hành động (Call to Action):** Khi chatbot tư vấn bảo hiểm theo địa bàn, người dùng phải tự tìm đường vào trang upload tài liệu, trang mua gói hoặc trang bồi thường, thiếu các index link điều hướng trực tiếp theo từng bước.
+
+**Giải pháp:**
+1. **Cơ chế phân giải khu vực ưu tiên tài liệu mới nhất (Latest Document & Bundle Province Resolution):**
+   - Khi chatbot dựng system prompt (`_build_system_prompt`), hệ thống tự động kiểm tra:
+     - Ưu tiên 1: Hồ sơ hợp nhất mới nhất (`OCRBundle.consolidated_profile`).
+     - Ưu tiên 2: Tài liệu xử lý OCR thành công mới nhất (`Document.structured_data`) có chứa trường `place_of_residence` (CCCD) hoặc `address` (GPLX/Cà vẹt).
+     - Fallback: Trường `user.province` hiện tại.
+   - Sử dụng thuật toán `detect_province_from_text(address)` nhận diện chính xác 63 tỉnh thành Việt Nam (xử lý không dấu, viết tắt: HCM, TP HCM, HN, Vũng Tàu...), đồng thời tự động cập nhật lại `user.province` và `user.region` trong CSDL.
+   - Kết nối tự động với `GeoRisk` để nạp điểm rủi ro tổng hợp (0-100) và các loại thiên tai chính (bão, lũ, ngập lụt, sạt lở) vào context của Gemini.
+2. **Bộ parse Markdown chuyên dụng `ChatMarkdown` trên Frontend:**
+   - Xử lý mượt mà thẻ in đậm `**...**` (`font-semibold text-gray-900`), in nghiêng, code inline, danh sách có thứ tự `1. 2. 3.` (`<ol>`) và danh sách gạch đầu dòng (`<ul>`). Triệt tiêu hoàn toàn lỗi hiển thị `**` thô.
+3. **Điều hướng từng bước với Actionable Links (Index Links):**
+   - Chatbot được chỉ thị trả lời theo đúng quy trình 3 bước chuẩn của ClaimFlow kèm liên kết Markdown nội bộ:
+     - **Bước 1:** `[Trang Quản lý Tài liệu](/documents)` — Tải hồ sơ, AI tự động OCR điền form.
+     - **Bước 2:** `[Trang Đăng Ký Bảo Hiểm](/policies)` — Chọn gói bảo hiểm đề xuất theo vùng và kích hoạt.
+     - **Bước 3:** `[Trang Gửi Yêu Cầu Bồi Thường](/claims)` — Nộp claim khi gặp sự cố, tận dụng lại chứng từ Bước 1.
+     - Liên kết tham khảo: `[Bản Đồ Rủi Ro Khu Vực](/risk-map)`.
+   - Frontend tự động chuyển đổi các markdown links dạng `[label](/path)` thành các nút chip tương tác (`Link` từ `next/link` kèm icon `ArrowUpRight` và tiền tố đa ngôn ngữ `/${locale}`), cho phép chuyển trang tức thì chỉ với một cú nhấp chuột.
+
+---
+
+## Quyết định 24: Giải quyết Cold-Start vị trí thông minh (Smart Location Detection & Geolocation)
+
+**Vấn đề:**
+- Khi loại bỏ trường chọn Tỉnh/Thành phố ở form Đăng ký để tối ưu tỷ lệ chuyển đổi (Onboarding Frictionless), người dùng mới tạo tài khoản sẽ có `user.province = None`.
+- Nếu người dùng chưa kịp upload tài liệu cá nhân, khi vào Dashboard hoặc Risk Map, hệ thống rơi vào trạng thái "Cold-Start" (thiếu ngữ cảnh địa lý để hiển thị rủi ro bão lũ và mở lời tư vấn bảo hiểm).
+
+**Giải pháp:**
+1. **Tiện ích nhận diện vị trí thông minh đa tầng (`detectUserProvince` tại `frontend/src/lib/location.ts`):**
+   - **Tầng 1 (IP Geolocation tốc độ cao):** Sử dụng `ipwho.is` và `freeipapi.com` (miễn phí, không giới hạn gắt gao, không dính RateLimited của `ipapi.co`).
+   - **Tầng 2 (GPS/HTML5 Geolocation):** Gọi `navigator.geolocation.getCurrentPosition` lấy tọa độ thực tế $\rightarrow$ Reverse-geocode qua OpenStreetMap Nominatim chuẩn tiếng Việt.
+   - **Tầng 3 (Timezone Heuristic):** Fallback múi giờ (`Asia/Ho_Chi_Minh` $\rightarrow$ `TP. Hồ Chí Minh`).
+   - **Chuẩn hóa địa danh:** Thuật toán `matchProvince` tự động map tên nhận diện được với 63 tỉnh thành Việt Nam (xử lý không dấu, viết tắt: `hcm`, `saigon`, `hn`, `dn`...).
+2. **Banner kích hoạt định vị tại Dashboard (`DashboardClient.tsx`):**
+   - Tự động chạy ngầm khi phát hiện `!user.province`. Nếu xác định được (ví dụ: `TP. Hồ Chí Minh`), banner hiển thị thông báo đề xuất xác nhận ngay với 1 click.
+   - Khi bấm "Xác nhận", frontend gọi `PATCH /auth/location` cập nhật MongoDB và tự động làm mới điểm rủi ro toàn Dashboard mà không cần reload trang.
+3. **Nút "Vị trí của tôi" trên thanh công cụ Bản đồ rủi ro (`RiskMapClient.tsx`):**
+   - Tích hợp nút `[ 🧭 Vị trí của tôi ]` trên thanh tìm kiếm. Bấm vào lập tức định vị, tự động bay (smooth-fly) tới tỉnh thành tương ứng và mở bảng phân tích hiểm họa thiên tai địa phương.
+
+---
+
+## Quyết định 25: Chuẩn hóa Định dạng Ngày sinh (DOB Normalization) & Xử lý Trình duyệt HTML5 Date Input
+
+**Vấn đề:**
+- Dịch vụ OCR trích xuất ngày sinh từ CCCD/CMND/GPLX Việt Nam theo định dạng ngày tháng tiếng Việt: `DD/MM/YYYY` (hoặc `DD-MM-YYYY`, `DD.MM.YYYY`).
+- Tuy nhiên, phần tử HTML5 `<input type="date">` trên các trình duyệt hiện đại (Chrome, Safari, Edge) bắt buộc thuộc tính `value` phải tuân thủ nghiêm ngặt chuẩn ISO `YYYY-MM-DD`.
+- Khi form nhận trực tiếp chuỗi `11/09/2004`, trình duyệt coi đây là giá trị không hợp lệ (malformed date) và tự động loại bỏ, hiển thị ô nhập liệu trống (`dd/mm/yyyy`), tạo cảm giác hệ thống OCR không đọc được ngày sinh.
+- Đồng thời, các tài liệu khác nhau có thể lưu trường ngày sinh dưới nhiều alias khác nhau: `date_of_birth`, `dob`, `birth_date`, `ngay_sinh`, `birthday`, `ngaysinh`, `birth_date_str`.
+
+**Giải pháp:**
+1. **Hàm chuẩn hóa ngày sinh đa định dạng (`normalizeDateToInput` trong `PolicyPurchaseWizard.tsx`):**
+   - Tự động nhận diện chuỗi ngày tháng theo regex `^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})` (ngày/tháng/năm) và chuyển đổi chính xác thành `YYYY-MM-DD` kèm pad zero (ví dụ: `1/5/1990` $\rightarrow$ `1990-05-01`).
+   - Hỗ trợ định dạng `YYYY/MM/DD` và fallback qua JavaScript `Date.prototype.toISOString()`.
+2. **Bao quát toàn bộ alias trường ngày sinh & số giấy tờ:**
+   - Mở rộng logic trích xuất tại `buildInitial` và hàm "Điền nhanh từ kho tài liệu" (Vault Documents selector) để kiểm tra tất cả các key tương đương.
+   - Kết quả: Khi mở form từ tài liệu đơn, gói gộp (bundle) hoặc chọn từ kho, ô ngày sinh lập tức hiển thị chính xác ngày tháng mà người dùng không cần nhập lại.
+
+---
+
+## Quyết định 26: Kiến trúc Hộ gia đình (Family Hub) & Cô lập Dữ liệu Người thân (State Isolation)
+
+**Vấn đề:**
+- Khi người dùng đăng ký bảo hiểm bằng tài liệu của người thân (CCCD vợ/chồng hoặc con cái), hệ thống đọc đúng thông tin của người thân. Nhưng khi người dùng chuyển qua lại giữa nút "Mua cho bản thân" và "Mua cho người thân":
+  - Chuyển sang "Bản thân": Hệ thống cũ chỉ gán lại `name = currentUser.full_name`, nhưng giữ nguyên số CCCD, ngày sinh và địa chỉ của người thân $\rightarrow$ Tạo ra hồ sơ "lai ghép" sai lệch nghiêm trọng (tên của chồng nhưng số CCCD và ngày sinh lại là của vợ).
+  - Chuyển sang "Người thân": Hệ thống chỉ đổi quan hệ sang `spouse` nhưng để nguyên tên và giấy tờ của chính chủ tài khoản.
+
+**Giải pháp — Kiến trúc Cô lập Trạng thái (State Isolation & Dual Snapshot):**
+1. **Tách biệt 2 cấu trúc hồ sơ độc lập:**
+   - `selfProfileRef`: Chỉ lưu trữ và bảo toàn thông tin của chính chủ tài khoản (`currentUser.full_name`, CCCD chính chủ, ngày sinh chính chủ, `relationship: 'self'`).
+   - `relativeProfileRef`: Lưu trữ thông tin riêng biệt của người thân (`name`, `dob`, `id_number`, `relationship: 'spouse' | 'child' | 'parent'`).
+2. **Cơ chế Nhận diện Chủ quyền Tài liệu Tự động (Smart Owner Detection):**
+   - Khi form nạp thông tin từ tài liệu OCR, hệ thống so sánh tên trên tài liệu với tên của User đăng nhập (`normVN(docName) !== normVN(userName)`):
+     - **Nếu khác tên:** Tự động kích hoạt chế độ `👨‍👩‍👧 Mua cho người thân`, đặt quan hệ mặc định là `spouse`, điền dữ liệu người thân vào `relativeProfileRef` và hiển thị Toast thông báo rõ ràng cho người dùng.
+     - **Nếu trùng tên:** Tự động kích hoạt chế độ `👤 Mua cho bản thân`.
+3. **Chuyển đổi Persona an toàn tuyệt đối (`handleSwitchPersona`):**
+   - Khi bấm **"👤 Mua cho bản thân"**: Dữ liệu người thân được lưu lại vào `relativeProfileRef`; form hoàn trả thông tin chính chủ; CCCD và ngày sinh của người thân bị loại bỏ hoàn toàn; trường quan hệ được hiển thị cố định là `Chính chủ (Bản thân)`.
+   - Khi bấm **"👨‍👩‍👧 Mua cho người thân"**: Dữ liệu chính chủ được lưu lại; form mở ra thông tin người thân sạch sẽ để nhập hoặc chọn từ kho hồ sơ; hiển thị dropdown chọn quan hệ (`Vợ/Chồng`, `Con`, `Cha/Mẹ`, `Anh/Chị/Em`, `Khác`) kèm banner phân định rõ vai trò:
+     `Bên mua (Chủ tài khoản): [Tên User] — Người được bảo hiểm: [Tên người thân]`.
+
+---
+
+## Quyết định 27: Nghiệp vụ Đa Hợp đồng (Multi-Policy) & Chống Trùng lặp theo Đối tượng (Asset/Person Anti-Duplication)
+
+**Vấn đề:**
+- Theo chuẩn ngành bảo hiểm: 1 tài khoản (Bên mua bảo hiểm) hoàn toàn có quyền mua và quản lý nhiều hợp đồng cho các thành viên trong gia đình (con cái, vợ chồng, cha mẹ) và nhiều tài sản khác nhau (xe máy A, ô tô B, căn hộ 1, nhà phố 2).
+- Tuy nhiên, trước đây ở **Bước 1** của wizard, hệ thống mặc định coi `relationship` là `'self'`. Khi User đã sở hữu 1 gói Sức khỏe cho bản thân, hệ thống báo lỗi *"Bạn đã có gói này"* và khóa cứng nút "Tiếp tục" (`validate1()`), khiến người dùng **không thể chuyển sang Bước 2** để chọn mua cho người thân!
+- Đồng thời, bảo hiểm Xe và Nhà ở cũng bị chặn theo tài khoản User thay vì kiểm tra biển số xe hay địa chỉ tài sản.
+
+**Giải pháp:**
+1. **Đưa bộ chuyển đổi đối tượng lên Bước 1 (Target Persona in Step 1):**
+   - Bổ sung bộ chọn `[ 👤 Cho bản thân ] [ 👨‍👩‍👧 Cho người thân ]` ngay tại Bước 1.
+   - Khi User đã có gói cho bản thân, hệ thống không chặn dead-end mà hiển thị banner hướng dẫn:
+     *"Bạn đã sở hữu gói này cho bản thân. 1 tài khoản có thể mua thêm cho Vợ/Chồng, Con cái, Bố/Mẹ hoặc tài sản khác trong gia đình."* kèm nút bấm `[ 👨‍👩‍👧 Mua cho người thân → ]`. Bấm vào lập tức chuyển sang chế độ người thân và mở khóa nút "Tiếp tục".
+2. **Quy tắc Kiểm tra Trùng lặp theo Đối tượng thực tế (Backend `user_policies.py`):**
+   - **Gói Xe cơ giới (`vehicle`):** Chỉ chặn khi trùng chính xác **Biển số xe** (`license_plate`). Cùng 1 tài khoản có thể mua bảo hiểm cho nhiều xe khác nhau.
+   - **Gói Bất động sản (`property`):** Chỉ chặn khi trùng chính xác **Địa chỉ tài sản** (`address`). Cho phép bảo vệ nhiều ngôi nhà khác nhau.
+   - **Gói Con người (`health`, `life`, `income`, `disaster`):** Cho phép mua cho các thành viên khác nhau trong gia đình (`spouse`, `child`, `parent`...). Chỉ chặn khi trùng số CCCD hoặc cùng 1 cá nhân đã có gói cùng loại đang có hiệu lực.
+
+---
+
+## Quyết định 28: Tối ưu UI/UX Bản đồ Thiên tai (Risk Map) & Tái cấu trúc Phân tích (Analytics Deep-Dive)
+
+**Vấn đề:**
+- **Risk Map:** Bản đồ trước đây mặc định chế độ vệ tinh/hybrid tối màu khó quan sát các đường ranh giới và đường phố; thanh lọc thiên tai xếp hàng ngang chiếm nhiều diện tích và gây dính chùm; văn bản tiêu đề rườm rà làm giảm diện tích khung nhìn bản đồ.
+- **Analytics:** Trang Phân tích trước đây thiếu chiều sâu dữ liệu thời gian (không có bộ lọc theo Năm, Tháng, Ngày) và chưa thể hiện được tổng quan danh mục hợp đồng cá nhân (portfolio overview) của khách hàng.
+- **Policies:** Thứ tự tab trước đây chưa phản ánh đúng hành trình khách hàng (khách hàng thường muốn tham khảo các gói trước khi xem gói đã mua).
+
+**Giải pháp:**
+1. **Tinh chỉnh giao diện Bản đồ Rủi ro (`RiskMapClient.tsx` & `LeafletMap.tsx`):**
+   - Đặt lớp nền mặc định là **Dạng đường phố (Streets / OpenStreetMap)**: Giúp người dùng dễ dàng định vị đường sá, quận/huyện và địa danh quen thuộc.
+   - Thay thế thanh nút bấm thiên tai dàn ngang bằng **Dropdown thông minh**: Có icon trực quan từng loại thiên tai (🌀 Bão, 🌊 Lũ, ⛰️ Sạt lở, 🌧️ Ngập úng, ☀️ Hạn hán), badge số lượng tỉnh rủi ro cao và tự động thu gọn.
+   - Lược bỏ các tiêu đề dài dòng, tối đa hóa diện tích hiển thị của bản đồ và thẻ phân tích chi tiết.
+2. **Nâng cấp Trang Phân Tích (`AnalyticsClient.tsx` & `analytics.py`):**
+   - Bổ sung bộ lọc thời gian đa cấp độ: **Tất cả thời gian · Năm nay · Tháng này · Hôm nay · Khoảng thời gian tùy chọn** (kèm 2 ô chọn ngày bắt đầu - kết thúc).
+   - Tích hợp số liệu danh mục bảo hiểm cá nhân (Portfolio Overview): Tổng giá trị bảo vệ, tổng phí năm, số hợp đồng đang hoạt động, tỷ lệ bồi thường cá nhân, cùng các biểu đồ phân bố loại hình bảo hiểm và rủi ro theo tỉnh thành cư trú.
+3. **Sắp xếp lại Hành trình Khách hàng tại Trang Bảo hiểm (`PoliciesClient.tsx`):**
+   - Sắp xếp lại thứ tự tab: **"Tham khảo gói" (Mặc định)** $\rightarrow$ **"Gói của tôi"** $\rightarrow$ **"Lịch sử giao dịch & hợp đồng"**.
+
+---
+
 ## V1 → V2 Scale Path
 
 | Component | V1 (Demo) | V2 (Scale) |

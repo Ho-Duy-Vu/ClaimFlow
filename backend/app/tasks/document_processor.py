@@ -84,14 +84,16 @@ def process_claim(
         from app.models.user_policy import UserPolicy
         from app.models.notification import Notification
         from app.models.payment import Payment
+        from app.models.underwriting_rule import UnderwritingRule
         from app.services.ai.agent import run_claim_agent
         from app.services.notifications import notify
+        from app.services.dispatcher import get_or_create_underwriting_rules, auto_dispatch_claim
 
         client = AsyncIOMotorClient(settings.MONGODB_URL)
         await init_beanie(
             database=client[settings.MONGODB_DB_NAME],
             document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy,
-                             AuditLog, UserPolicy, Notification, Payment],
+                             AuditLog, UserPolicy, Notification, Payment, UnderwritingRule],
         )
 
         claim = await Claim.get(claim_id)
@@ -133,6 +135,29 @@ def process_claim(
         )
 
         decision = state["final_decision"]
+
+        # ── Underwriting Rules & STP Check ──────────────────────────────────────
+        rules = await get_or_create_underwriting_rules()
+        stp_downgraded = False
+        stp_reason = ""
+        if decision == "approve":
+            if not rules.stp_enabled:
+                stp_downgraded = True
+                stp_reason = "Chế độ duyệt tự động tức thì (STP) đang tạm tắt."
+            elif claim.amount_claimed > rules.max_stp_amount:
+                stp_downgraded = True
+                stp_reason = f"Số tiền yêu cầu ({claim.amount_claimed:,.0f} đ) vượt hạn mức duyệt tự động STP ({rules.max_stp_amount:,.0f} đ)."
+            elif state.get("fraud_score", 0) > rules.max_stp_fraud_score:
+                stp_downgraded = True
+                stp_reason = f"Điểm rủi ro AI ({state.get('fraud_score', 0)}/100) vượt ngưỡng cho phép duyệt tức thì ({rules.max_stp_fraud_score}/100)."
+
+            if stp_downgraded:
+                decision = "manual_review"
+                state["final_reasoning"] = (
+                    f"[Chuyển thẩm định thủ công: {stp_reason}] "
+                    + (state.get("final_reasoning") or "")
+                )
+
         status_map = {
             "approve": "approved",
             "reject": "rejected",
@@ -149,7 +174,7 @@ def process_claim(
                 "ai_fraud_score": state["fraud_score"],
                 "ai_fraud_flags": state["fraud_flags"],
                 "ai_parsed_data": state["parsed_data"],
-                "amount_approved": state.get("amount_approved"),
+                "amount_approved": state.get("amount_approved") if final_status == "approved" else None,
                 "province": state.get("province") or claim.province,
                 "disaster_type": state.get("disaster_type") or claim.disaster_type,
                 "processed_at": datetime.utcnow(),
@@ -167,26 +192,35 @@ def process_claim(
             "need_more_info": ("claim_info_requested", "Cần bổ sung thông tin",
                                "Hồ sơ còn thiếu thông tin — vui lòng bổ sung để tiếp tục xử lý."),
             "manual_review": ("system", "Yêu cầu đang được xét duyệt",
-                              "Claim của bạn đang được chuyên viên xét duyệt thủ công."),
+                              "Claim của bạn đang được chuyển đến chuyên viên thẩm định."),
         }
         _t, _title, _body = _ai_notif.get(decision, ("system", "Cập nhật yêu cầu bồi thường", ""))
         await notify(claim.user_id, type=_t, title=_title, body=_body, link="/claims")
 
-        # Notify reviewers/admins when a claim needs manual review
+        # Smart Workload Dispatching for manual review
         if final_status == "manual_review":
-            try:
-                reviewers = await User.find(
-                    {"role": {"$in": ["reviewer", "admin"]}, "is_active": True}
-                ).to_list()
-                for r in reviewers:
-                    await notify(
-                        str(r.id), type="system",
-                        title="Có yêu cầu cần xét duyệt",
-                        body=f"Claim {claim.claim_type} cần xét duyệt thủ công (điểm rủi ro {state['fraud_score']}/100).",
-                        link="/reviewer",
-                    )
-            except Exception as exc:
-                logger.warning("Notify reviewers failed (celery) claim=%s: %s", claim_id, exc)
+            fresh_claim = await Claim.get(claim.id)
+            assigned_reviewer = None
+            if fresh_claim:
+                try:
+                    assigned_reviewer = await auto_dispatch_claim(fresh_claim)
+                except Exception as exc:
+                    logger.warning("Auto dispatch claim %s failed: %s", claim_id, exc)
+
+            if not assigned_reviewer:
+                try:
+                    reviewers = await User.find(
+                        {"role": {"$in": ["reviewer", "admin"]}, "is_active": True}
+                    ).to_list()
+                    for r in reviewers:
+                        await notify(
+                            str(r.id), type="system",
+                            title="Có yêu cầu cần xét duyệt",
+                            body=f"Claim {claim.claim_type} cần xét duyệt thủ công (điểm rủi ro {state['fraud_score']}/100).",
+                            link="/reviewer",
+                        )
+                except Exception as exc:
+                    logger.warning("Notify reviewers failed (celery) claim=%s: %s", claim_id, exc)
 
     return asyncio.run(_run())
 

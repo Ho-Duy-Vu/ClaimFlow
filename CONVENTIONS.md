@@ -28,6 +28,7 @@ chore(deps): upgrade langchain-google-genai to 1.0.6
 ## Python — Backend
 
 ### Naming
+
 ```python
 # snake_case cho files, functions, variables
 ocr_service.py, province_risk.py
@@ -47,6 +48,7 @@ GEMINI_PRO_MODEL = "gemini-1.5-pro"
 ```
 
 ### FastAPI Route Pattern
+
 ```python
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from app.api.deps import get_current_user, get_db
@@ -66,6 +68,7 @@ async def upload_document(
 ```
 
 ### Service Pattern (Beanie)
+
 ```python
 class OCRService:
     def __init__(self):
@@ -88,6 +91,7 @@ class OCRService:
 ```
 
 ### Gemini API Pattern
+
 ```python
 import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -104,6 +108,7 @@ embedding_model = "models/text-embedding-004"
 ```
 
 ### Privacy Guard Pattern (Chatbot)
+
 ```python
 PRIVACY_SYSTEM_PROMPT = """
 Bạn là AI tư vấn bảo hiểm ClaimFlow.
@@ -125,6 +130,7 @@ Bạn ĐƯỢC PHÉP sử dụng context để:
 ## TypeScript — Frontend
 
 ### Naming
+
 ```typescript
 // kebab-case cho files
 risk-map.tsx, ocr-result-table.tsx, use-claim-status.ts
@@ -143,6 +149,7 @@ const SUPPORTED_DOC_TYPES = ['cccd', 'driver_license', ...] as const;
 ```
 
 ### Component Pattern
+
 ```typescript
 // components/risk-map/ProvincePanel.tsx
 interface ProvincePanelProps {
@@ -166,6 +173,7 @@ export function ProvincePanel({ province, onClose }: ProvincePanelProps) {
 ```
 
 ### Leaflet Pattern (SSR safe)
+
 ```typescript
 // components/risk-map/LeafletMap.tsx — Client component only
 'use client';
@@ -181,6 +189,7 @@ const LeafletMap = dynamic(() => import('@/components/risk-map/LeafletMap'), {
 ```
 
 ### API Call Pattern
+
 ```typescript
 // lib/api.ts
 export const api = axios.create({
@@ -212,6 +221,7 @@ export const geoApi = {
 ## LangGraph — AI Agent
 
 ### State Pattern
+
 ```python
 class ClaimState(TypedDict):
     claim_id: str
@@ -237,6 +247,7 @@ class ClaimState(TypedDict):
 ```
 
 ### Node Pattern
+
 ```python
 def document_parser_node(state: ClaimState) -> dict:
     """Extract structured data từ raw OCR text."""
@@ -359,32 +370,31 @@ class OCRService:
         self, file_bytes: bytes, doc_type: str, user_id: str
     ) -> dict:
         file_hash = hashlib.md5(file_bytes).hexdigest()
-        
+      
         # Check cache
         cached = await Document.find_one(Document.file_hash == file_hash)
         if cached and cached.structured_data and cached.processing_status == "done":
             logger.info("OCR cache hit: %s", file_hash[:8])
             return {"data": cached.structured_data, "cached": True}
-        
+      
         # Cache miss → call Gemini
         result = await self._extract_with_retry(file_bytes, doc_type)
         return {"data": result, "cached": False}
 
     async def _extract_with_retry(self, file_bytes: bytes, doc_type: str) -> dict:
         result = await self._call_gemini(file_bytes, doc_type)
-        
+      
         if result.get("confidence", 0) < 0.7:
             logger.warning("Low confidence %.2f, retrying with enhanced prompt",
                           result["confidence"])
             result = await self._call_gemini(file_bytes, doc_type, enhanced=True)
-        
+      
         result["needs_manual_review"] = result.get("confidence", 0) < 0.7
         return result
 ```
 
-
-
 ### Python
+
 ```python
 # 1. stdlib
 import re, json, logging
@@ -402,6 +412,7 @@ from app.schemas.document import DocumentResponse
 ```
 
 ### TypeScript
+
 ```typescript
 // 1. React/Next
 import { useState, useEffect } from 'react';
@@ -728,9 +739,9 @@ export function LanguageSwitcher() {
 
 ### Quy tắc bắt buộc
 
-| ✅ Đúng | ❌ Sai |
-|---|---|
-| `t('auth.login')` | `"Đăng nhập"` hardcoded |
-| `getTranslations('nav')` trong Server Component | `useTranslations` trong Server Component |
-| `useTranslations('claims')` trong Client Component | Hardcode `"Approved"` |
-| Key kiểu `camelCase` | Key kiểu `snake_case` hoặc `kebab-case` |
+| ✅ Đúng                                            | ❌ Sai                                       |
+| ---------------------------------------------------- | -------------------------------------------- |
+| `t('auth.login')`                                  | `"Đăng nhập"` hardcoded                 |
+| `getTranslations('nav')` trong Server Component    | `useTranslations` trong Server Component   |
+| `useTranslations('claims')` trong Client Component | Hardcode`"Approved"`                       |
+| Key kiểu`camelCase`                               | Key kiểu`snake_case` hoặc `kebab-case` |

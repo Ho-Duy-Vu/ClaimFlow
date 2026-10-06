@@ -1,8 +1,10 @@
+from datetime import datetime
 import logging
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.api.deps import get_current_user
 from app.core.config import settings
@@ -95,4 +97,25 @@ async def logout(response: Response):
 
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user)):
+    return UserResponse.from_user(current_user)
+
+
+class UpdateLocationRequest(BaseModel):
+    province: str
+
+
+@router.patch("/location")
+async def update_location(
+    body: UpdateLocationRequest,
+    current_user: User = Depends(get_current_user),
+):
+    from app.services.province_mapper import get_region
+    from app.services.geo.risk_engine import detect_province_from_text
+
+    canonical_p = detect_province_from_text(body.province) or body.province
+    current_user.province = canonical_p
+    current_user.region = get_region(canonical_p)
+    current_user.updated_at = datetime.utcnow()
+    await current_user.save()
+    logger.info("Updated user %s province to %s", current_user.id, canonical_p)
     return UserResponse.from_user(current_user)

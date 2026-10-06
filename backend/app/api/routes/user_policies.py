@@ -266,14 +266,56 @@ async def purchase_policy(
     if body.policy_type in ("life", "income") and not body.beneficiaries:
         raise HTTPException(422, "Cần khai báo người thụ hưởng cho gói nhân thọ / thu nhập")
 
-    # Check if already has an active policy of this type
-    existing = await UserPolicy.find_one(
+    # Check duplicate active policy:
+    # 1 user can manage multiple policies for different family members (self, spouse, child, parent)
+    # and multiple assets (different vehicle plates, different property addresses).
+    active_policies = await UserPolicy.find(
         UserPolicy.user_id == str(current_user.id),
         UserPolicy.policy_type == body.policy_type,
         UserPolicy.status == "active",
-    )
-    if existing:
-        raise HTTPException(409, f"Bạn đã có gói {body.policy_type} đang hoạt động")
+    ).to_list()
+
+    if active_policies:
+        if body.policy_type == "vehicle":
+            new_plate = (body.subject_details or {}).get("license_plate", "").strip().upper()
+            if new_plate:
+                for p in active_policies:
+                    p_plate = (p.subject_details or {}).get("license_plate", "").strip().upper()
+                    if p_plate and p_plate == new_plate:
+                        raise HTTPException(409, f"Bạn đã có hợp đồng bảo hiểm xe đang hoạt động cho biển số {new_plate}")
+        elif body.policy_type == "property":
+            new_addr = (body.subject_details or {}).get("address", "").strip().lower()
+            if new_addr:
+                for p in active_policies:
+                    p_addr = (p.subject_details or {}).get("address", "").strip().lower()
+                    if p_addr and p_addr == new_addr:
+                        raise HTTPException(409, f"Bạn đã có hợp đồng bảo hiểm tài sản đang hoạt động cho địa chỉ này")
+        else:
+            # Person-based policies (health, life, income, disaster)
+            insured_id = body.insured_person.id_number.strip() if body.insured_person and body.insured_person.id_number else None
+            insured_name = body.insured_person.name.strip().lower() if body.insured_person and body.insured_person.name else None
+            insured_rel = body.insured_person.relationship or "self" if body.insured_person else "self"
+
+            for p in active_policies:
+                p_person = p.insured_person or {}
+                p_id = (p_person.get("id_number") or "").strip()
+                p_name = (p_person.get("name") or "").strip().lower()
+                p_rel = p_person.get("relationship") or "self"
+
+                is_same = False
+                # If same valid ID number (CCCD/CMND)
+                if insured_id and p_id and insured_id == p_id:
+                    is_same = True
+                # If buying for self and existing is also self
+                elif insured_rel == "self" and p_rel == "self":
+                    is_same = True
+                # If buying for relative: match only if same relationship AND same name
+                elif insured_rel != "self" and p_rel == insured_rel and insured_name and p_name and insured_name == p_name:
+                    is_same = True
+
+                if is_same:
+                    target = f"cho {body.insured_person.name}" if body.insured_person and body.insured_person.name else "cho bản thân"
+                    raise HTTPException(409, f"Bạn đã có gói {body.policy_type} đang hoạt động {target}")
 
     plan = plans[body.plan_index]
 

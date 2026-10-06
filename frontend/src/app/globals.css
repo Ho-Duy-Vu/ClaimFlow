@@ -4,26 +4,43 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Relief Canvas & Typography (UI.md) */
+    --color-warm-cream: #f9f7f0;
+    --color-snow: #ffffff;
+    --color-ink: #333333;
+    --color-charcoal: #212121;
+    --color-fog: #d0d5dd;
+    --color-slate: #616c8a;
+    --color-slate-border: #40444e;
+    --color-deep-harbor: #13426f;
+    --color-sky-pop: #2e96ff;
+    --color-deep-wave: #0254a5;
+    --color-sky-tint: #bde1f9;
+    --color-sky-wash: #cde7fb;
+    --color-info-mist: #73b9ff;
+    --color-sky-mid: #50a7ff;
+
+    /* Semantic HSL tokens mapped to Relief */
+    --background: 44 48% 96%; /* #f9f7f0 Warm Cream */
+    --foreground: 0 0% 20%;   /* #333333 Ink */
+    --card: 0 0% 100%;        /* #ffffff Snow */
+    --card-foreground: 0 0% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 210 100% 59%;  /* #2e96ff Sky Pop */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 204 88% 86%; /* #bde1f9 Sky Tint */
+    --secondary-foreground: 209 71% 25%; /* #13426f Deep Harbor */
+    --muted: 44 30% 93%;
+    --muted-foreground: 224 18% 46%; /* #616c8a Slate */
+    --accent: 205 85% 91%;
+    --accent-foreground: 209 71% 25%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --border: 216 12% 84%;     /* #d0d5dd Fog */
+    --input: 216 12% 84%;
+    --ring: 210 100% 59%;      /* Sky Pop */
+    --radius: 1.375rem;        /* 22px Card Radius */
   }
 
   .dark {
@@ -33,8 +50,8 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 210 100% 59%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -45,7 +62,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 210 100% 59%;
   }
 }
 
@@ -54,8 +71,27 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-warm-cream);
+    color: var(--color-ink);
+    letter-spacing: -0.018em;
   }
+}
+
+/* Relief Signature Pop Shadows */
+.shadow-pop {
+  box-shadow: rgba(154, 207, 246, 0.5) 0px 7px 0px 0px;
+}
+.shadow-pop-sm {
+  box-shadow: rgba(154, 207, 246, 0.5) 0px 5px 0px 0px;
+}
+.shadow-pop-xs {
+  box-shadow: rgba(154, 207, 246, 0.5) 0px 3px 0px 0px;
+}
+.shadow-harbor {
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 6px 0px 0px;
+}
+.shadow-card {
+  box-shadow: rgba(0, 0, 0, 0.04) 0px 4px 14px 0px;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -115,3 +151,184 @@
 .dark input[type="time"] {
   color-scheme: dark;
 }
+
+/* Leaflet Custom Clean Tooltip */
+.leaflet-clean-tooltip {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05) !important;
+  padding: 6px 10px !important;
+}
+.leaflet-clean-tooltip::before {
+  display: none !important;
+}
+
+/* ── Sleek Custom Scrollbars (Eliminates ugly Windows default scrollbars) ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(19, 66, 111, 0.22);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(19, 66, 111, 0.45);
+}
+
+/* Dark mode scrollbars */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Specific sleek scrollbar for Sidebar Navigation */
+aside nav::-webkit-scrollbar {
+  width: 4px;
+}
+aside nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+aside nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+aside nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Firefox standard scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(19, 66, 111, 0.22) transparent;
+}
+aside nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Utility to hide scrollbars where needed while preserving scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── InsureTech Weather & Radar Micro-Animations ── */
+@keyframes rainDropFall {
+  0% {
+    transform: translateY(-8px) translateX(0) scaleY(0.8);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(18px) translateX(-4px) scaleY(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes waveFlow {
+  0% {
+    transform: translateX(0) translateZ(0) scaleY(1);
+  }
+  50% {
+    transform: translateX(-25%) translateZ(0) scaleY(1.15);
+  }
+  100% {
+    transform: translateX(-50%) translateZ(0) scaleY(1);
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radarSweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes beaconPing {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes rainParticle {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: -20% 100%;
+  }
+}
+
+.animate-rain-1 {
+  animation: rainDropFall 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.animate-rain-2 {
+  animation: rainDropFall 0.9s cubic-bezier(0.4, 0, 0.6, 1) infinite 0.25s;
+}
+.animate-rain-3 {
+  animation: rainDropFall 1.3s cubic-bezier(0.4, 0, 0.6, 1) infinite 0.5s;
+}
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+.animate-spin-medium {
+  animation: spinSlow 4s linear infinite;
+}
+.animate-wave-flow {
+  animation: waveFlow 4s ease-in-out infinite;
+}
+.animate-radar-sweep {
+  animation: radarSweep 3s linear infinite;
+}
+.animate-beacon-ping {
+  animation: beaconPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Canvas/Overlay rain effect */
+.rain-overlay {
+  background-image: radial-gradient(1.5px 6px at 20px 20px, rgba(46, 150, 255, 0.6) 50%, transparent 100%),
+                    radial-gradient(1.5px 8px at 80px 60px, rgba(46, 150, 255, 0.5) 50%, transparent 100%),
+                    radial-gradient(1px 5px at 140px 30px, rgba(189, 225, 249, 0.7) 50%, transparent 100%),
+                    radial-gradient(1.5px 7px at 190px 90px, rgba(46, 150, 255, 0.5) 50%, transparent 100%);
+  background-size: 200px 140px;
+  animation: rainParticle 0.75s linear infinite;
+  pointer-events: none;
+}
+
+

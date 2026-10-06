@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3,
+  Building2,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   MessageCircle,
   Shield,
   ShieldCheck,
+  Sliders,
   Users,
 } from 'lucide-react';
 import api from '@/lib/api';
@@ -63,8 +65,10 @@ export function Sidebar({ mobileOpen = false, onNavigate }: { mobileOpen?: boole
     { href: `/${locale}/policies`,  label: t('policies'), icon: Shield, allowed: ['user', 'reviewer', 'admin'] },
     { href: `/${locale}/analytics`, label: t('analytics'), icon: BarChart3, allowed: ['user', 'reviewer', 'admin'] },
     { href: `/${locale}/chatbot`,   label: t('chatbot'),  icon: MessageCircle, allowed: ['user', 'reviewer', 'admin'] },
-    { href: `/${locale}/reviewer`,  label: t('reviewer'), icon: ShieldCheck, allowed: ['reviewer', 'admin'] },
-    { href: `/${locale}/admin`,     label: t('admin'),    icon: Users, allowed: ['admin'] },
+    { href: `/${locale}/reviewer`,     label: t('reviewer'), icon: ShieldCheck, allowed: ['reviewer', 'admin'] },
+    { href: `/${locale}/admin`,        label: t('admin'),    icon: Users, allowed: ['admin'] },
+    { href: `/${locale}/underwriting`, label: 'Quy tắc thẩm định', icon: Sliders, allowed: ['admin'] },
+    { href: `/${locale}/partners`,     label: 'Mạng lưới đối tác', icon: Building2, allowed: ['admin', 'reviewer'] },
   ];
 
   const role = (user?.role ?? 'user') as Role;
@@ -80,9 +84,9 @@ export function Sidebar({ mobileOpen = false, onNavigate }: { mobileOpen?: boole
   };
 
   const roleBadgeCls: Record<Role, string> = {
-    admin:    'bg-red-500/20 text-red-300 border-red-500/30',
-    reviewer: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    user:     'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    admin:    'bg-red-500/20 text-red-200 border-red-400/30',
+    reviewer: 'bg-amber-500/20 text-amber-200 border-amber-400/30',
+    user:     'bg-[#2e96ff]/30 text-[#bde1f9] border-[#2e96ff]/40',
   };
 
   const roleLabel: Record<Role, string> = {
@@ -93,21 +97,28 @@ export function Sidebar({ mobileOpen = false, onNavigate }: { mobileOpen?: boole
 
   return (
     <aside
-      className={`w-60 bg-gray-900 text-white flex flex-col shrink-0 z-40
-        fixed inset-y-0 left-0 h-screen transform transition-transform duration-200
+      className={`w-64 bg-[#13426f] text-white flex flex-col shrink-0 z-50
+        fixed inset-y-0 left-0 h-screen transform transition-transform duration-200 shadow-[4px_0_24px_rgba(0,0,0,0.12)]
         md:static md:h-auto md:min-h-screen md:translate-x-0
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
     >
-      <div className="p-5 border-b border-gray-700">
-        <h1 className="text-lg font-bold text-blue-400 tracking-tight">ClaimFlow</h1>
-        <p className="text-xs text-gray-400 mt-0.5">AI Insurance Platform</p>
+      <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-[#2e96ff] flex items-center justify-center text-white shadow-[0_4px_0_0_rgba(154,207,246,0.5)] shrink-0">
+          <Shield size={18} className="stroke-[2.5]" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5 leading-tight">
+            ClaimFlow
+          </h1>
+          <p className="text-[11px] font-medium text-[#bde1f9] tracking-normal truncate">Insurance & Map Platform</p>
+        </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-2.5 space-y-0.5 overflow-y-auto">
         {loading ? (
-          <div className="space-y-2 px-2 py-1">
+          <div className="space-y-1.5 px-2 py-1">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-9 bg-gray-800 rounded-lg animate-pulse" />
+              <div key={i} className="h-9 bg-white/10 rounded-full animate-pulse" />
             ))}
           </div>
         ) : (
@@ -118,14 +129,14 @@ export function Sidebar({ mobileOpen = false, onNavigate }: { mobileOpen?: boole
                 key={href}
                 href={href}
                 onClick={onNavigate}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-[#2e96ff] text-white shadow-[0_4px_0_0_rgba(154,207,246,0.5)] active:translate-y-0.5'
+                    : 'text-[#cde7fb] hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <Icon size={17} />
-                {label}
+                <Icon size={16} className={isActive ? 'stroke-[2.5]' : ''} />
+                <span className="truncate">{label}</span>
               </Link>
             );
           })
@@ -133,23 +144,23 @@ export function Sidebar({ mobileOpen = false, onNavigate }: { mobileOpen?: boole
       </nav>
 
       {user && (
-        <div className="p-3 border-t border-gray-700 space-y-2">
-          <div className="px-2">
-            <p className="text-sm font-medium text-white truncate">
+        <div className="p-3.5 border-t border-white/10 space-y-2">
+          <div className="p-2.5 bg-white/10 backdrop-blur-xs rounded-[18px] border border-white/15">
+            <p className="text-xs font-bold text-white truncate">
               {user.full_name ?? user.email}
             </p>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-gray-400 truncate">{user.email}</p>
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${roleBadgeCls[role]}`}>
+            <div className="flex items-center justify-between mt-1 gap-2">
+              <p className="text-[11px] text-[#bde1f9] truncate">{user.email}</p>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${roleBadgeCls[role]}`}>
                 {roleLabel[role]}
               </span>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#cde7fb] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
           >
-            <LogOut size={15} />
+            <LogOut size={13} />
             {tAuth('logout')}
           </button>
         </div>

@@ -1,7 +1,10 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException,
+    Request, Response, UploadFile, WebSocket, WebSocketDisconnect,
+)
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
@@ -11,8 +14,10 @@ from app.models.audit_log import AuditLog
 from app.models.claim import Claim
 from app.models.document import Document, DocumentEmbed
 from app.models.user import User
+from app.services.ai.damage_analyzer import analyze_damage_image
 from app.services.email import send_claim_review_email
 from app.services.notifications import notify
+from app.services.dispatcher import get_or_create_underwriting_rules, auto_dispatch_claim
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +89,7 @@ class ClaimSubmitRequest(BaseModel):
     hospital_admission_number: str | None = None
     police_report_number: str | None = None
     fact_declaration: bool = False
+    damage_assessment: dict | None = None
 
     @field_validator("amount_claimed")
     @classmethod
@@ -121,6 +127,10 @@ class ClaimReviewRequest(BaseModel):
     fields_needed: list[str] = []
     # For partial_approved: reason why amount was reduced
     reduction_reason: str | None = Field(default=None, max_length=500)
+    # Enterprise Adjustment & Dual Notes
+    adjustment_items: list[dict] = []
+    internal_note: str | None = None
+    customer_notice: str | None = None
 
     @field_validator("note")
     @classmethod
@@ -131,7 +141,32 @@ class ClaimReviewRequest(BaseModel):
         return v
 
 
-def _serialize_claim(c: Claim) -> dict:
+def _serialize_claim(c: Claim, partner_map: dict | None = None) -> dict:
+    partner_info = None
+    qr_guarantee_payload = None
+    partner_id = getattr(c, "partner_id", None)
+    if partner_id and partner_map and partner_id in partner_map:
+        part = partner_map[partner_id]
+        partner_info = {
+            "id": str(part.id),
+            "name": part.name,
+            "partner_type": part.partner_type,
+            "province": part.province,
+            "address": part.address,
+            "lat": getattr(part, "lat", None),
+            "lng": getattr(part, "lng", None),
+            "phone": getattr(part, "phone", None),
+            "hotline": getattr(part, "hotline", None),
+            "cashless_supported": getattr(part, "cashless_supported", True),
+            "rating": getattr(part, "rating", 4.8),
+            "services": getattr(part, "services", []),
+            "guarantee_status": getattr(c, "partner_guarantee_status", "guaranteed"),
+            "service_type": getattr(c, "partner_service_type", None),
+            "notes": getattr(c, "partner_notes", None),
+            "dispatched_at": c.partner_dispatched_at.isoformat() if getattr(c, "partner_dispatched_at", None) else None,
+        }
+        qr_guarantee_payload = f"CLAIMFLOW-CASHLESS:{c.id}:{part.id}:{c.user_id}:{part.partner_type}"
+
     return {
         "id": str(c.id),
         "user_id": c.user_id,
@@ -142,6 +177,16 @@ def _serialize_claim(c: Claim) -> dict:
         "amount_approved": c.amount_approved,
         "is_partial_approval": c.is_partial_approval,
         "reduction_reason": c.reduction_reason,
+        "adjustment_items": getattr(c, "adjustment_items", []) or [],
+        "internal_note": getattr(c, "internal_note", None),
+        "customer_notice": getattr(c, "customer_notice", None),
+        "sla_hours": getattr(c, "sla_hours", 48),
+        "sla_deadline": c.sla_deadline.isoformat() if getattr(c, "sla_deadline", None) else None,
+        "partner_id": partner_id,
+        "partner_service_type": getattr(c, "partner_service_type", None),
+        "partner_guarantee_status": getattr(c, "partner_guarantee_status", None),
+        "partner": partner_info,
+        "qr_guarantee_payload": qr_guarantee_payload,
         "additional_info_requested": c.additional_info_requested,
         "additional_info_requested_at": c.additional_info_requested_at.isoformat() if c.additional_info_requested_at else None,
         "additional_info_provided_at": c.additional_info_provided_at.isoformat() if c.additional_info_provided_at else None,
@@ -155,6 +200,7 @@ def _serialize_claim(c: Claim) -> dict:
         "hospital_admission_number": c.hospital_admission_number,
         "police_report_number": c.police_report_number,
         "fact_declaration": c.fact_declaration,
+        "damage_assessment": c.damage_assessment,
         "ai_decision": c.ai_decision,
         "ai_reasoning": c.ai_reasoning,
         "ai_fraud_score": c.ai_fraud_score,
@@ -202,6 +248,29 @@ async def _process_claim_bg(
         )
 
         decision = state["final_decision"]
+
+        # ── Underwriting Rules & STP Check ──────────────────────────────────────
+        rules = await get_or_create_underwriting_rules()
+        stp_downgraded = False
+        stp_reason = ""
+        if decision == "approve":
+            if not rules.stp_enabled:
+                stp_downgraded = True
+                stp_reason = "Chế độ duyệt tự động tức thì (STP) đang tạm tắt."
+            elif claim.amount_claimed > rules.max_stp_amount:
+                stp_downgraded = True
+                stp_reason = f"Số tiền yêu cầu ({claim.amount_claimed:,.0f} đ) vượt hạn mức duyệt tự động STP ({rules.max_stp_amount:,.0f} đ)."
+            elif state.get("fraud_score", 0) > rules.max_stp_fraud_score:
+                stp_downgraded = True
+                stp_reason = f"Điểm rủi ro AI ({state.get('fraud_score', 0)}/100) vượt ngưỡng cho phép duyệt tức thì ({rules.max_stp_fraud_score}/100)."
+
+            if stp_downgraded:
+                decision = "manual_review"
+                state["final_reasoning"] = (
+                    f"[Chuyển thẩm định thủ công: {stp_reason}] "
+                    + (state.get("final_reasoning") or "")
+                )
+
         status_map = {
             "approve": "approved",
             "reject": "rejected",
@@ -218,7 +287,7 @@ async def _process_claim_bg(
                 "ai_fraud_score": state["fraud_score"],
                 "ai_fraud_flags": state["fraud_flags"],
                 "ai_parsed_data": state["parsed_data"],
-                "amount_approved": state.get("amount_approved"),
+                "amount_approved": state.get("amount_approved") if final_status == "approved" else None,
                 "province": state.get("province") or claim.province,
                 "disaster_type": state.get("disaster_type") or claim.disaster_type,
                 "processed_at": datetime.utcnow(),
@@ -233,7 +302,7 @@ async def _process_claim_bg(
             "decision": decision,
             "reasoning": state["final_reasoning"],
             "fraud_score": state["fraud_score"],
-            "amount_approved": state.get("amount_approved"),
+            "amount_approved": state.get("amount_approved") if final_status == "approved" else None,
         })
         logger.info("Claim %s processed: %s (fraud=%d)", claim_id, decision, state["fraud_score"])
 
@@ -244,28 +313,37 @@ async def _process_claim_bg(
             "reject": ("claim_reviewed", "Yêu cầu bồi thường bị từ chối",
                        "Claim của bạn chưa đủ điều kiện — xem lý do & bấm \"Vì sao?\" trong chi tiết."),
             "need_more_info": ("claim_info_requested", "Cần bổ sung thông tin",
-                               "Hồ sơ còn thiếu thông tin — vui lòng bổ sung để tiếp tục xử lý."),
+                       "Hồ sơ còn thiếu thông tin — vui lòng bổ sung để tiếp tục xử lý."),
             "manual_review": ("system", "Yêu cầu đang được xét duyệt",
-                              "Claim của bạn đang được chuyên viên xét duyệt thủ công."),
+                              "Claim của bạn đang được chuyển đến chuyên viên thẩm định."),
         }
         _t, _title, _body = _ai_notif.get(decision, ("system", "Cập nhật yêu cầu bồi thường", ""))
         await notify(claim.user_id, type=_t, title=_title, body=_body, link="/claims")
 
-        # ── Notify reviewers/admins when a claim needs manual review ───────────
+        # ── Smart Workload Dispatching for manual review ─────────────────────────
         if final_status == "manual_review":
-            try:
-                reviewers = await User.find(
-                    {"role": {"$in": ["reviewer", "admin"]}, "is_active": True}
-                ).to_list()
-                for r in reviewers:
-                    await notify(
-                        str(r.id), type="system",
-                        title="Có yêu cầu cần xét duyệt",
-                        body=f"Claim {claim.claim_type} cần xét duyệt thủ công (điểm rủi ro {state['fraud_score']}/100).",
-                        link="/reviewer",
-                    )
-            except Exception as exc:
-                logger.warning("Notify reviewers failed for claim %s: %s", claim_id, exc)
+            fresh_claim = await Claim.get(claim.id)
+            assigned_reviewer = None
+            if fresh_claim:
+                try:
+                    assigned_reviewer = await auto_dispatch_claim(fresh_claim)
+                except Exception as exc:
+                    logger.warning("Auto dispatch claim %s failed: %s", claim_id, exc)
+
+            if not assigned_reviewer:
+                try:
+                    reviewers = await User.find(
+                        {"role": {"$in": ["reviewer", "admin"]}, "is_active": True}
+                    ).to_list()
+                    for r in reviewers:
+                        await notify(
+                            str(r.id), type="system",
+                            title="Có yêu cầu cần xét duyệt",
+                            body=f"Claim {claim.claim_type} cần xét duyệt thủ công (điểm rủi ro {state['fraud_score']}/100).",
+                            link="/reviewer",
+                        )
+                except Exception as exc:
+                    logger.warning("Notify reviewers failed for claim %s: %s", claim_id, exc)
 
     except Exception as exc:
         logger.error("Claim processing failed %s: %s", claim_id, exc)
@@ -305,6 +383,47 @@ async def _embed_docs(user_id: str, doc_ids: list[str], limit: int) -> tuple[lis
                     f"[{doc.doc_type}]\n{_json.dumps(doc.structured_data, ensure_ascii=False)}"
                 )
     return embeds, context_parts
+
+
+@router.post("/analyze-damage")
+@limiter.limit("20/minute")
+async def analyze_damage_endpoint(
+    request: Request,
+    claim_type: str = Form("vehicle"),
+    incident_description: str | None = Form(None),
+    document_id: str | None = Form(None),
+    file: UploadFile | None = File(None),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Phân tích ảnh hiện trường bằng Gemini Vision để giám định tổn thất và phát hiện gian lận."""
+    image_bytes = None
+    mime_type = "image/jpeg"
+
+    if file and file.filename:
+        image_bytes = await file.read()
+        mime_type = file.content_type or "image/jpeg"
+    elif document_id:
+        doc = await Document.get(document_id)
+        if not doc or doc.user_id != str(current_user.id):
+            raise HTTPException(404, "Không tìm thấy tài liệu ảnh hiện trường")
+        from app.services.storage import download_file
+        try:
+            image_bytes = download_file(doc.file_path)
+            mime_type = doc.mime_type or "image/jpeg"
+        except Exception as e:
+            logger.warning(f"Could not download file from storage: {e}")
+
+    if not image_bytes:
+        from app.services.ai.damage_analyzer import _generate_fallback_assessment
+        return _generate_fallback_assessment(claim_type, incident_description)
+
+    result = await analyze_damage_image(
+        image_bytes=image_bytes,
+        mime_type=mime_type,
+        claim_type=claim_type,
+        incident_description=incident_description,
+    )
+    return result
 
 
 @router.post("/submit", status_code=201)
@@ -423,6 +542,7 @@ async def submit_claim(
         hospital_admission_number=body.hospital_admission_number,
         police_report_number=body.police_report_number,
         fact_declaration=body.fact_declaration,
+        damage_assessment=body.damage_assessment,
     )
     await claim.insert()
     claim_id = str(claim.id)
@@ -520,7 +640,16 @@ async def list_claims(
     current_user: User = Depends(get_current_user),
 ) -> list[dict]:
     claims = await Claim.find(Claim.user_id == str(current_user.id)).sort(-Claim.created_at).to_list()
-    return [_serialize_claim(c) for c in claims]
+    partner_map = {}
+    has_partners = any(getattr(c, "partner_id", None) for c in claims)
+    if has_partners:
+        try:
+            from app.models.partner import Partner
+            all_parts = await Partner.find_all().to_list()
+            partner_map = {str(p.id): p for p in all_parts}
+        except Exception:
+            partner_map = {}
+    return [_serialize_claim(c, partner_map=partner_map) for c in claims]
 
 
 @router.delete("/{claim_id}", status_code=204)
@@ -547,7 +676,17 @@ async def get_claim(
     claim = await Claim.get(claim_id)
     if not claim or claim.user_id != str(current_user.id):
         raise HTTPException(404, "Claim not found")
-    return _serialize_claim(claim)
+    partner_map = {}
+    if getattr(claim, "partner_id", None):
+        try:
+            from app.models.partner import Partner
+            part = await Partner.get(claim.partner_id)
+            if part:
+                partner_map[str(part.id)] = part
+                partner_map[claim.partner_id] = part
+        except Exception:
+            pass
+    return _serialize_claim(claim, partner_map=partner_map)
 
 
 @router.patch("/{claim_id}/review")
@@ -617,21 +756,46 @@ async def review_claim(
     previous_ai_decision = claim.ai_decision
     reviewed_at = datetime.utcnow()
 
+    # ── Check Underwriting Rules: Four-Eyes Principle (Admin Sign-off for High Value) ──
+    rules = await get_or_create_underwriting_rules()
+    requires_admin = False
+    if decision in ("approved", "partial_approved") and amount_approved and amount_approved >= rules.high_value_threshold:
+        requires_admin = True
+        payment_status_set = "pending_admin_approval"
+
     update_doc: dict = {
         "status": new_status,
         "reviewer_id": str(current_user.id),
         "reviewer_note": body.note,
+        "internal_note": (body.internal_note or "").strip() or None,
+        "customer_notice": (body.customer_notice or "").strip() or None,
+        "adjustment_items": body.adjustment_items or [],
         "reviewed_at": reviewed_at,
         "amount_approved": amount_approved,
         "payment_status": payment_status_set,
         "is_partial_approval": is_partial,
         "reduction_reason": (body.reduction_reason or "").strip() or None if is_partial else None,
+        "requires_admin_approval": requires_admin,
     }
     if decision == "info_requested":
         update_doc["additional_info_requested"] = body.fields_needed
         update_doc["additional_info_requested_at"] = reviewed_at
         update_doc["additional_info_provided_at"] = None  # reset if previously provided
     await Claim.find_one(Claim.id == claim.id).update({"$set": update_doc})
+
+    if requires_admin:
+        try:
+            admins = await User.find({"role": "admin", "is_active": True}).to_list()
+            for adm in admins:
+                await notify(
+                    str(adm.id),
+                    type="system",
+                    title="Hồ sơ giá trị cao chờ Admin ký duyệt",
+                    body=f"Hồ sơ {claim.claim_type.upper()} ({amount_approved:,.0f} đ) cần duyệt cấp 2 (Four-Eyes Principle) trước khi chi trả.",
+                    link="/admin?tab=underwriting",
+                )
+        except Exception as exc:
+            logger.warning("Notify admin failed for high-value claim %s: %s", claim_id, exc)
 
     # ── Audit log ─────────────────────────────────────────────────────────────
     ai_outcome_map = {

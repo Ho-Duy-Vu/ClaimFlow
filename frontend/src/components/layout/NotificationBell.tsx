@@ -118,24 +118,24 @@ export function NotificationBell() {
     <div className="relative" ref={boxRef}>
       <button
         onClick={() => { setOpen((o) => !o); if (!open) load(); }}
-        className="relative w-9 h-9 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+        className="relative w-8.5 h-8.5 flex items-center justify-center rounded-full text-[#13426f] hover:bg-[#bde1f9]/40 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
         aria-label={t('title')}
       >
         <Bell size={18} />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('title')}</span>
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-gray-900 border border-[#d0d5dd] dark:border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#d0d5dd] dark:border-gray-700 bg-[#f9f7f0] dark:bg-gray-800/80">
+            <span className="text-xs font-bold text-[#13426f] dark:text-gray-100 uppercase tracking-wider">{t('title')}</span>
             {unread > 0 && (
-              <button onClick={markAllRead} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                <CheckCheck size={12} /> {t('markAllRead')}
+              <button onClick={markAllRead} className="text-xs text-[#2e96ff] font-bold hover:underline flex items-center gap-1">
+                <CheckCheck size={13} /> {t('markAllRead')}
               </button>
             )}
           </div>

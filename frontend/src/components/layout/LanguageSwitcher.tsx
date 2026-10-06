@@ -16,7 +16,7 @@ export function LanguageSwitcher() {
   return (
     <button
       onClick={toggle}
-      className="text-sm font-medium px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+      className="text-xs font-bold px-3 py-1 rounded-full border border-[#d0d5dd] bg-white text-[#13426f] hover:bg-[#eef6ff] transition-all shadow-2xs cursor-pointer"
     >
       {locale === 'vi' ? '🇻🇳 VI' : '🇺🇸 EN'}
     </button>

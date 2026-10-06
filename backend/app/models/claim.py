@@ -44,6 +44,7 @@ class Claim(Document):
     ai_fraud_score: int | None = None
     ai_fraud_flags: list[str] = []
     ai_parsed_data: dict | None = None
+    damage_assessment: dict | None = None
 
     province: str | None = None
     disaster_type: str | None = None
@@ -51,6 +52,8 @@ class Claim(Document):
     reviewer_id: str | None = None
     reviewer_note: str | None = None
     reviewed_at: datetime | None = None
+    assigned_at: datetime | None = None
+    assigned_by: str | None = None          # "ai_dispatcher" | email
 
     # Reviewer v2 (TASK-029): request more info + partial approval tracking
     additional_info_requested: list[str] = []
@@ -59,8 +62,27 @@ class Claim(Document):
     reduction_reason: str | None = None
     is_partial_approval: bool = False
 
+    # Four-Eyes Principle (2-tier sign-off for claims >= 50M)
+    requires_admin_approval: bool = False
+    admin_approved_by: str | None = None
+    admin_approved_at: datetime | None = None
+
+    # Enterprise Claims Adjudication (Itemized Adjustment, Dual Notes, SLA)
+    adjustment_items: list[dict] = []
+    internal_note: str | None = None
+    customer_notice: str | None = None
+    sla_hours: int = 48
+    sla_deadline: datetime | None = None
+
+    # Partner Network Guarantee / Dispatch (Garage / Hospital / Rescue)
+    partner_id: str | None = None
+    partner_service_type: str | None = None # "rescue_dispatch" | "direct_billing" | "garage_repair"
+    partner_dispatched_at: datetime | None = None
+    partner_guarantee_status: str | None = None # "requested" | "guaranteed" | "completed"
+    partner_notes: str | None = None
+
     # Payment workflow (human-only) — humans must mark transfer done after approval
-    payment_status: Literal["not_applicable", "pending", "paid", "failed"] = "not_applicable"
+    payment_status: Literal["not_applicable", "pending", "pending_admin_approval", "paid", "failed"] = "not_applicable"
     payment_transaction_ref: str | None = None
     payment_marked_by: str | None = None
     payment_marked_at: datetime | None = None

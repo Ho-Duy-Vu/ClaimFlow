@@ -1453,3 +1453,203 @@ Các route trước đây là 3-line stubs đã được implement đầy đủ:
 ### Seed Script Bug Fix
 - `scripts/seed.py:18` thiếu `from datetime import datetime` → `seed_user_policies()` crash khi dùng `datetime.utcnow()` trong scope hàm
 - Đã fix import top-level
+
+---
+
+### TASK-038 `[FE]` Chuẩn hóa Ngày sinh OCR & HTML5 Date Input (`normalizeDateToInput`) ✅
+- **Vấn đề:** OCR trích xuất ngày sinh dạng `DD/MM/YYYY` (ví dụ `11/09/2004`), nhưng thẻ HTML5 `<input type="date">` yêu cầu chuẩn ISO `YYYY-MM-DD`, dẫn đến việc trình duyệt hiển thị ô trống. Đồng thời thiếu các alias `dob`, `birth_date`, `ngay_sinh`...
+- **Giải pháp:**
+  - Viết helper `normalizeDateToInput(raw)` tự động parse và chuyển đổi `DD/MM/YYYY`, `DD-MM-YYYY`, `YYYY/MM/DD` thành `YYYY-MM-DD`.
+  - Mở rộng toàn bộ alias trích xuất ngày sinh và giấy tờ tùy thân.
+  - Tích hợp vào `buildInitial` và hàm "Điền nhanh từ kho tài liệu".
+
+---
+
+### TASK-039 `[FE]` Kiến trúc Hộ gia đình (Family Hub) & Cô lập Dữ liệu Người thân ✅
+- **Vấn đề:** Khi dùng tài liệu người thân đăng ký bảo hiểm, nếu chuyển qua lại giữa "Bản thân" và "Người thân", dữ liệu cá nhân bị rò rỉ và lai ghép sai lệch (tên của user nhưng CCCD của người thân).
+- **Giải pháp:**
+  - Xây dựng cơ chế **State Isolation** với 2 snapshot riêng biệt: `selfProfileRef` và `relativeProfileRef`.
+  - **Smart Owner Detection:** Tự động so sánh tên trong tài liệu với tên User đăng nhập. Nếu khác tên, tự động bật chế độ `👨‍👩‍👧 Mua cho người thân`.
+  - Hàm `handleSwitchPersona`: Chuyển đổi an toàn giữa Bản thân và Người thân, bảo toàn dữ liệu và không làm rò rỉ CCCD/ngày sinh.
+  - Phân định rõ ràng trên UI: Bên mua bảo hiểm (Chủ tài khoản) vs Người được bảo hiểm (Người thân).
+
+---
+
+### TASK-040 `[BE/FE]` Nghiệp vụ Đa Hợp đồng & Chống Trùng lặp theo Đối tượng ✅
+- **Vấn đề:** 1 tài khoản bị chặn không thể mua bảo hiểm cho người thân ở Bước 1 vì mặc định kiểm tra `relationship: 'self'`; bảo hiểm xe và nhà ở cũng bị chặn trùng theo tài khoản user thay vì theo biển số/địa chỉ.
+- **Giải pháp:**
+  - Đưa bộ chọn Persona `[ 👤 Cho bản thân ] [ 👨‍👩‍👧 Cho người thân ]` lên Bước 1 của Wizard.
+  - Bổ sung nút chuyển đổi 1 chạm `[ 👨‍👩‍👧 Mua cho người thân → ]` khi user đã sở hữu gói cho bản thân, gỡ bỏ trạng thái chặn `validate1()`.
+  - Cập nhật Backend `user_policies.py`:
+    - Gói Xe (`vehicle`): Kiểm tra trùng lặp theo `license_plate` (biển số xe).
+    - Gói Tài sản (`property`): Kiểm tra trùng lặp theo `address` (địa chỉ tài sản).
+    - Gói Con người (`health`, `life`, `income`, `disaster`): Cho phép mua cho nhiều thành viên trong gia đình (`spouse`, `child`, `parent`...).
+
+---
+
+### TASK-041 `[FE/BE]` Nâng cấp Bản đồ Rủi ro & Phân tích Đa Tầng Thời gian (Năm/Tháng/Ngày) ✅
+- **Bản đồ Rủi ro (`RiskMapClient.tsx`):**
+  - Đặt basemap mặc định là Dạng đường phố (Streets / OpenStreetMap) quen thuộc, sắc nét.
+  - Thay thế thanh nút bấm thiên tai dàn ngang bằng **Dropdown thông minh** có icon và badge số tỉnh rủi ro cao.
+  - Tối ưu không gian map, lược bỏ tiêu đề rườm rà.
+  - Bổ sung định vị vị trí thông minh (Cold-start location detection) với fallback an toàn.
+- **Trang Phân Tích (`AnalyticsClient.tsx` & `analytics.py`):**
+  - Bổ sung bộ lọc thời gian: Tất cả thời gian / Năm nay / Tháng này / Hôm nay / Khoảng ngày tùy chọn.
+  - Tích hợp số liệu danh mục bảo hiểm cá nhân (Portfolio Overview): Tổng giá trị bảo vệ, tổng phí năm, số hợp đồng active.
+- **Trang Bảo hiểm (`PoliciesClient.tsx`):**
+  - Sắp xếp lại thứ tự tab theo hành trình người dùng: "Tham khảo gói" (Mặc định) $\rightarrow$ "Gói của tôi" $\rightarrow$ "Lịch sử".
+
+---
+
+### TASK-042 `[BE]` Bổ sung 6 Gói Bảo hiểm Thiên tai Chuyên biệt ✅
+
+**Vấn đề:** `POLICY_PLANS["disaster"]` chỉ có 3 gói chung chung không phản ánh thiên tai đa dạng ở Việt Nam.
+
+**Giải pháp** (`backend/app/models/user_policy.py`):
+- 6 gói thiên tai chuyên biệt với `sub_type` và `coverage_items` chi tiết:
+  1. **Lũ Lụt & Ngập Úng** (flood) — 200M / 1.8M năm
+  2. **Sạt Lở Đất & Đá Rơi** (landslide) — 300M / 2.4M năm
+  3. **Hạn Hán & Thiếu Nước** (drought) — 150M / 1.4M năm
+  4. **Bảo Hiểm Nông Nghiệp** (agricultural) — 500M / 3.6M năm
+  5. **Bão & Áp Thấp Nhiệt Đới** (typhoon) — 500M / 4.2M năm
+  6. **Thiên Tai Toàn Diện** (all_hazard) — 2 tỷ / 12M năm
+
+---
+
+### TASK-043 `[FE]` Hoàn thiện Form Đăng ký Bảo hiểm — Validation & Data Standards ✅
+
+**Vấn đề:** Form thiếu fields theo chuẩn bảo hiểm, validation chung chung, Step 4 không phân biệt rõ đối tượng bảo hiểm.
+
+**Giải pháp** (`frontend/src/components/policies/PolicyPurchaseWizard.tsx`):
+- **Mở rộng `SubjectDetails`** (+17 fields): health (nhóm máu, dị ứng), property (năm XD, diện tích, sổ hồng), vehicle (VIN, màu, mục đích), disaster (địa chỉ, loại TS, giá trị, mô tả, lịch sử thiệt hại, ảnh).
+- **Form Thiên tai (Step 3)** hoàn toàn mới với summary gói đã chọn + coverage_items + warning chuẩn BH.
+- **Validation theo từng loại (`fieldErrors` map)**: Inline error hint (viền đỏ + ⚠) dưới từng field lỗi. Disaster yêu cầu địa chỉ + mô tả + giá trị; Property yêu cầu địa chỉ + loại + giá trị; Vehicle yêu cầu biển số + hãng + năm.
+- **Step 4 Insured Summary Card**: Hiển thị tên/quan hệ/CCCD người được bảo hiểm để xác nhận trước thanh toán, tách biệt rõ "bồi thường riêng biệt" khi mua cho người thân.
+
+---
+
+### TASK-044 `[FE]` Cô lập Phân tích Bồi thường theo Hợp đồng (Policy ID) & Hiển thị Người được Bảo hiểm ✅
+
+**Vấn đề:** 
+1. Khi mở modal chi tiết hợp đồng của người thân (ví dụ: ông An), phần "Phân tích bồi thường" bị tính nhầm số tiền bồi thường của người mua (bà Thu) vì query lọc claims theo `claim_type` chung thay vì `policy_id` cụ thể của hợp đồng.
+2. Modal chi tiết hợp đồng chỉ hiển thị người đăng ký tài khoản (buyer) mà không hiển thị thông tin người được bảo hiểm (`insured_person`) và chi tiết đối tượng bảo hiểm (`subject_details`).
+
+**Giải pháp:**
+- **`PoliciesClient.tsx` (PolicyDetailModal):**
+  - Cập nhật logic `useEffect`: Lọc danh sách claims chính xác theo `c.policy_id === policy.id`. Nhờ đó, gói của ông An (chưa claim) hiển thị `ĐÃ SỬ DỤNG: 0 đ` và `CÒN LẠI: 100%`, hoàn toàn độc lập với claim 24.999.999 đ của bà Thu.
+  - Thêm thẻ **"Thông tin người được bảo hiểm" (`insuredPersonTitle`)**: Hiển thị rõ họ tên, ngày sinh, số CCCD/CMND, và quan hệ với chủ hợp đồng (`rel.self`, `rel.spouse`, `rel.child`...).
+  - Thêm khối **"Thông tin đối tượng bảo hiểm" (`subjectDetailsTitle`)**: Hiển thị địa chỉ tài sản, biển số xe, hãng xe, gói thiên tai chuyên biệt, cây trồng nông nghiệp nếu có.
+  - Nâng cấp **"Thông tin người mua bảo hiểm" (`buyerInfo`)**: Thay thế ghi chú tạm TASK-028 cũ bằng mô tả chuẩn nghiệp vụ bảo hiểm.
+- **`frontend/src/types/index.ts`:**
+  - Bổ sung `policy_id?: string | null` vào interface `Claim`.
+  - Bổ sung `subject_details?: Record<string, any> | null` vào interface `UserPolicy`.
+- **`frontend/src/messages/vi.json` & `en.json`:**
+  - Bổ sung các nhãn đa ngôn ngữ cho Người được bảo hiểm, Đối tượng bảo hiểm, và chuẩn hóa ghi chú người mua hợp đồng.
+
+---
+
+### TASK-045 `[FE/BE]` Chuẩn hóa Nhãn Quan Hệ & Đồng bộ Đối Tượng Bảo Hiểm Toàn Hệ Thống ✅
+
+**Vấn đề:**
+1. Một số nơi trên UI hiển thị raw key `policies.rel.self` hoặc chuỗi tiếng Anh thô `spouse`, `child` thay vì giá trị tiếng Việt rõ ràng ("Vợ / Chồng", "Con cái", "Bản thân (Chính chủ)").
+2. Trong form gửi yêu cầu bồi thường (`ClaimSubmitWizard`), dropdown chọn gói bảo hiểm không hiển thị đối tượng bảo hiểm, khiến user không phân biệt được khi sở hữu 2 gói cùng loại (ví dụ: gói sức khỏe cho bản thân vs gói sức khỏe cho người thân).
+3. Bảng danh sách yêu cầu bồi thường (`ClaimsClient`) và các màn hình khác (Reviewer, Admin, Dashboard) thiếu thông tin đối tượng thụ hưởng của từng hồ sơ bồi thường.
+
+**Giải pháp:**
+- **Module chuẩn hóa dùng chung (`frontend/src/lib/policy-helpers.ts`):**
+  - Cung cấp hàm `getRelationshipLabel(rel)` ánh xạ an toàn sang nhãn tiếng Việt chuẩn, không bao giờ lộ raw key ra UI.
+  - Cung cấp hàm `getPolicySubjectLabel(policy)` tóm tắt nhanh đối tượng bảo hiểm (Người thụ hưởng, Biển số xe, Địa chỉ nhà, Gói thiên tai).
+- **Form Yêu cầu bồi thường (`ClaimSubmitWizard.tsx`):**
+  - Trong `<select>` chọn gói bảo hiểm: hiển thị rõ `Tên gói (Cho: [Họ tên] - [Quan hệ]) · Hạn mức · Số HĐ`.
+  - Bổ sung thẻ xác nhận đối tượng bảo hiểm màu ngọc bích ngay dưới dropdown và trong Step 3 Xác nhận.
+- **Trang Quản lý Yêu cầu bồi thường (`ClaimsClient.tsx`):**
+  - Trong bảng claims: hiển thị badge đối tượng bảo hiểm (`getPolicySubjectLabel(policy)`) ở cột Loại bảo hiểm.
+  - Trong modal chi tiết claim (`DetailModal`): bổ sung khối "Hợp đồng & Đối tượng được bảo hiểm" với thông tin người thụ hưởng, CCCD, ngày sinh và lưu ý hồ sơ người thân.
+- **Đồng bộ Thẩm định viên (`ReviewerClient.tsx` & `reviewer.py`):**
+  - Backend `reviewer.py` bổ sung `insured_person` và `subject_details` trong `policy_info`.
+  - Frontend hiển thị thông tin đối tượng được bảo hiểm trong ngăn thẩm định để đối chiếu chứng từ y tế.
+- **Đồng bộ Quản trị viên (`AdminClient.tsx` & `admin.py`):**
+  - Backend `admin.py` bổ sung `insured_person` trong `_serialize_user_policy_admin`.
+  - Frontend hiển thị badge đối tượng trong danh sách hợp đồng của user.
+- **Đồng bộ Trang chủ (`DashboardClient.tsx`):**
+  - Hiển thị badge người thụ hưởng trong card "Gói của tôi" và danh sách "Yêu cầu bồi thường gần đây".
+
+---
+
+### TASK-046 `[FE]` Tối Ưu Thiết Kế Dropdown Chọn Gói Bảo Hiểm Trong Form Bồi Thường ✅
+
+**Vấn đề:**
+- Menu dropdown `<select>` chọn gói bảo hiểm trong modal "Gửi yêu cầu bồi thường mới" (`ClaimSubmitWizard`) hiển thị quá nhiều trường dữ liệu cùng lúc (`Loại · Tên gói (Cho: [Tên] ([Quan hệ])) · Hạn mức VNĐ · Số HĐ`).
+- Chuỗi text dài vượt quá chiều rộng của modal dialog, làm dropdown bị tràn (overflow) ra ngoài popup gây mất thẩm mỹ giao diện người dùng.
+
+**Giải pháp:**
+- **Rút gọn định dạng hiển thị trong `<select>`:**
+  - Áp dụng hàm `getShortPolicyOptionLabel(policy)`: Chỉ hiển thị ngắn gọn định dạng `Tên gói (Tên người sử dụng)` (ví dụ: `Sức Khỏe Cơ Bản (NGUYỄN VĂN AN)`, `Sức Khỏe Cơ Bản (LÊ THỊ THU)` hoặc `Xe Máy Cơ Bản (29A-123.45)`).
+  - Bổ sung CSS class `truncate max-w-full bg-white shadow-sm` để đảm bảo dropdown luôn ôm trọn khung modal.
+- **Giữ đầy đủ chi tiết:**
+  - Ngay sau khi người dùng chọn gói, toàn bộ thông tin chi tiết (Số hợp đồng, Quan hệ, CCCD, Ngày sinh, Hạn mức còn lại) vẫn được hiển thị đầy đủ, trực quan và trang nhã ở thẻ tóm tắt màu xanh ngọc bích ngay bên dưới dropdown và ở bước Xác nhận (Step 3).
+
+---
+
+### TASK-047 `[BE/FE/AI]` AI Vision Giám Định Tổn Thất Hiện Trường & Phát Hiện Gian Lận (Feature 2) ✅
+
+**Mô tả:**
+- Nâng cấp khả năng thị giác máy tính (Gemini Vision) để phân tích trực tiếp ảnh hiện trường tai nạn, sập đổ, ngập nước hoặc hóa đơn điều trị.
+- Tự động bóc tách loại tổn thất, mức độ thiệt hại (`minor` | `moderate` | `severe` | `total_loss`), thanh tiến trình % tổn thất, danh sách linh kiện/kết cấu hư hỏng và khung chi phí bồi thường ước tính (VNĐ).
+- Tích hợp công cụ phát hiện gian lận (Fraud Detection): kiểm tra ảnh chụp lại từ màn hình khác, dấu vết cắt ghép và mức độ nhất quán với mô tả sự cố.
+
+**Thay đổi:**
+- **Backend:**
+  - Module `backend/app/services/ai/damage_analyzer.py`: Phân tích hình ảnh hiện trường bằng Gemini Vision, kèm bộ fallback thông minh khi thiếu API key.
+  - Endpoint `POST /api/v1/claims/analyze-damage`: Tiếp nhận file ảnh hoặc `document_id`, trả về JSON giám định có cấu trúc.
+  - Cập nhật model `Claim` và endpoint `POST /claims/submit` để lưu trữ `damage_assessment`.
+  - Cập nhật `_serialize_queue_item` trong `reviewer.py` để gửi thông tin giám định sang cho Thẩm định viên.
+- **Frontend:**
+  - `ClaimSubmitWizard.tsx`: Trong Bước 2 (Chứng từ), hiển thị nút *"✨ AI Giám định tổn thất"*. Khi bấm, hiển thị card kết quả AI chuyên nghiệp với thanh đo % hư hỏng, danh sách chi tiết và nút *"✓ Áp dụng số tiền"* tự động điền vào form.
+  - `ReviewerClient.tsx`: Bổ sung ngăn thẩm định thị giác *"AI Vision Giám định tổn thất hiện trường"* kèm cờ kiểm soát rủi ro gian lận.
+
+---
+
+### TASK-048 `[BE/FE/GIS]` Mạng Lưới Đối Tác Bảo Lãnh Trực Tiếp & Cứu Hộ Khẩn Cấp SOS (Feature 4) ✅
+
+**Mô tả:**
+- Biến bản đồ rủi ro thiên tai Leaflet thành bản đồ hành động thực tế (Actionable Map Layer) với mạng lưới đối tác bảo lãnh không tiền mặt (Cashless) và cứu hộ 24/7.
+- Cung cấp nút bấm "🚨 SOS Hiện trường" định vị GPS 1 chạm, tự động tìm 3 đối tác gần nhất và cấp mã QR bảo lãnh tạm ứng khẩn cấp (lên tới 30.000.000 đ).
+
+**Thay đổi:**
+- **Backend:**
+  - Model `Partner` (`backend/app/models/partner.py`): Gara sửa chữa ô tô/xe máy, Bệnh viện bảo lãnh viện phí, Đội cứu hộ 24/7.
+  - Endpoint `GET /api/v1/geo-risk/partners`: Danh sách đối tác, hỗ trợ lọc theo tỉnh và loại hình.
+  - Endpoint `GET /api/v1/geo-risk/partners/nearby`: Tìm kiếm đối tác theo khoảng cách bán kính (Haversine km) từ GPS người dùng.
+  - Endpoint `POST /api/v1/geo-risk/sos`: Điều phối khẩn cấp, sinh mã điều phối `SOS-YYYYMMDD-XXXX` và mã QR bảo lãnh viện phí/sửa chữa tức thì.
+  - Seed sẵn 19 cơ sở đối tác uy tín trải dài Hà Nội, Đà Nẵng, Quảng Bình, TP.HCM, Cần Thơ, Hải Phòng.
+- **Frontend:**
+  - `LeafletMap.tsx`: Bổ sung render custom DivIcons sinh động cho Gara (🔧), Bệnh viện (🏥), Đội cứu hộ (🚨) và vị trí người dùng (📍), kèm popup thông tin đầy đủ, hotline 1 chạm và chỉ đường Google Maps.
+  - `RiskMapClient.tsx`:
+    - Thêm nút chuyển đổi lớp *"Đối tác bảo lãnh"* và nút *"🚨 SOS Hiện trường"*.
+    - Modal *"Điều phối cứu hộ hiện trường & Bảo lãnh"*: chọn loại sự cố (Tai nạn / Hỏng xe / Y tế), hiển thị GPS, phát lệnh điều phối và sinh mã QR bảo lãnh.
+    - Bảng thanh tra tỉnh (Side Panel): hiển thị danh sách các cơ sở bảo lãnh & cứu hộ tại tỉnh được chọn.
+
+---
+
+### TASK-049 `[FE/UX]` Chuẩn Hóa Luồng Nghiệp Vụ Wizard: Chuyển Ô Nhập Số Tiền Bồi Thường Sang Bước 2 ✅
+
+**Mô tả:**
+- Khắc phục điểm bất hợp lý trong luồng người dùng (User Flow): người dùng khai báo bối cảnh sự cố ở Bước 1 trước khi tải hóa đơn/ảnh thiệt hại ở Bước 2, nên việc yêu cầu nhập số tiền ở Bước 1 là phi thực tế và ngược quy trình giám định.
+- Tinh chỉnh Wizard tạo yêu cầu bồi thường theo đúng chuẩn FNOL (First Notice of Loss) ngành bảo hiểm số:
+  - **Bước 1 (Sự cố):** Chỉ tập trung khai báo thông tin sự việc (Hợp đồng bảo hiểm, Ngày giờ, Địa điểm, Loại sự cố, Mô tả). Gỡ bỏ hoàn toàn ô nhập số tiền yêu cầu bồi thường.
+  - **Bước 2 (Chứng từ & Chi phí):** Tải lên chứng từ hóa đơn, hồ sơ bệnh án hoặc ảnh hiện trường $\rightarrow$ AI Vision giám định tổn thất và đề xuất chi phí $\rightarrow$ Đặt ô nhập **Số tiền yêu cầu bồi thường (VNĐ)** trực quan ngay tại đây. Người dùng có thể nhấn 1 chạm *"✓ Áp dụng số tiền"* từ AI hoặc chủ động nhập theo tổng hóa đơn viện phí / báo giá sửa chữa thực tế.
+  - **Validation logic:** Di chuyển logic kiểm tra `amount_claimed` (`amountNum <= 0` và `amountNum > coverage_remaining`) từ `step1Errors` sang `step2Errors`.
+  - **Tiêu đề các bước:** Đổi tên nhãn Bước 2 thành *"Chứng từ & Chi phí"* (`vi.json`) / *"Evidence & Cost"* (`en.json`).
+
+---
+
+### TASK-050 `[GIS/FE/BE]` Tối Ưu Phân Bố Mạng Lưới Điểm Cứu Hộ & Nâng Cấp Chỉ Đường Google Maps ✅
+
+**Mô tả:**
+- **Rải đều các điểm đối tác / cứu hộ trên bản đồ Việt Nam:** Khắc phục tình trạng các điểm marker bị dồn cục đè lên nhau tại 1-2 thành phố lớn trong khi các tỉnh thành khác trống trơn. Mở rộng lên 32 cơ sở đối tác uy tín (Bệnh viện 🏥, Gara 🔧, Cứu hộ 🚨) rải đều dọc theo hình chữ S Việt Nam từ Lào Cai (Vĩ độ 22.49°N) đến Đất Mũi Cà Mau (Vĩ độ 9.18°N).
+- **Chỉ đường Google Maps chuẩn xác:** Thay đổi link Google Maps từ dạng tìm kiếm tĩnh (`maps/search`) sang API định tuyến điều hướng lái xe trực tiếp (`maps/dir/?api=1&origin=...&destination=...&travelmode=driving`), tự động lấy tọa độ GPS người dùng hoặc GPS đối tác để dẫn đường tức thì.
+- **Chỉnh màu chữ nút "Gọi" thành màu đen:** Nâng cấp style nút "Gọi 0xx xxx" trên popup bản đồ Leaflet, trong modal cứu hộ SOS và trong danh sách cơ sở đối tác thành chữ đen đậm (`text-black font-extrabold`, `color: #000000`) trên nền vàng hổ phách nổi bật đạt độ tương phản cao, dễ đọc rõ ràng.
+
+
+

@@ -17,7 +17,8 @@ Run:
 import json
 import os
 import sys
-from urllib.request import urlopen
+import unicodedata
+from urllib.request import Request, urlopen
 
 import pyproj
 
@@ -26,11 +27,33 @@ OUTPUT = os.path.join(
     os.path.dirname(__file__), "..", "..", "frontend", "public", "vietnam-provinces.geojson"
 )
 
+PROVINCES = [
+    'An Giang', 'Bà Rịa - Vũng Tàu', 'Bắc Giang', 'Bắc Kạn', 'Bạc Liêu',
+    'Bắc Ninh', 'Bến Tre', 'Bình Định', 'Bình Dương', 'Bình Phước',
+    'Bình Thuận', 'Cà Mau', 'Cần Thơ', 'Cao Bằng', 'Đà Nẵng',
+    'Đắk Lắk', 'Đắk Nông', 'Điện Biên', 'Đồng Nai', 'Đồng Tháp',
+    'Gia Lai', 'Hà Giang', 'Hà Nam', 'Hà Nội', 'Hà Tĩnh',
+    'Hải Dương', 'Hải Phòng', 'Hậu Giang', 'Hòa Bình', 'Hưng Yên',
+    'Khánh Hòa', 'Kiên Giang', 'Kon Tum', 'Lai Châu', 'Lâm Đồng',
+    'Lạng Sơn', 'Lào Cai', 'Long An', 'Nam Định', 'Nghệ An',
+    'Ninh Bình', 'Ninh Thuận', 'Phú Thọ', 'Phú Yên', 'Quảng Bình',
+    'Quảng Nam', 'Quảng Ngãi', 'Quảng Ninh', 'Quảng Trị', 'Sóc Trăng',
+    'Sơn La', 'Tây Ninh', 'Thái Bình', 'Thái Nguyên', 'Thanh Hóa',
+    'Thừa Thiên Huế', 'Tiền Giang', 'TP. Hồ Chí Minh', 'Trà Vinh', 'Tuyên Quang',
+    'Vĩnh Long', 'Vĩnh Phúc', 'Yên Bái',
+]
+
+def norm(s: str) -> str:
+    return ''.join(c for c in unicodedata.normalize('NFD', s.lower()) if unicodedata.category(c) != 'Mn').replace('đ','d').replace('.','').replace('-',' ').replace(' ', '')
+
+NORM_MAP = {norm(p): p for p in PROVINCES}
+
 
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     print(f"Downloading {SOURCE_URL}...")
-    with urlopen(SOURCE_URL, timeout=30) as resp:
+    req = Request(SOURCE_URL, headers={"User-Agent": "Mozilla/5.0"})
+    with urlopen(req, timeout=30) as resp:
         data = json.loads(resp.read().decode("utf-8"))
 
     t = data["hc-transform"]["default"]
@@ -45,16 +68,37 @@ def main() -> None:
 
     features = []
     for f in data["features"]:
-        if f["properties"].get("name") == "Southeast":
-            continue  # region label in source data, not a real province
         p = f["properties"]
+        name = p.get("name", "")
+        hc_key = p.get("hc-key", "")
+
+        # Highcharts maps Dong Nai with name 'Southeast', woe-label 'Dong Nai'
+        if name == "Southeast" or p.get("hc-a2") == "DN" or hc_key == "vn-331":
+            c_name = "Đồng Nai"
+            iso = "VN-39"
+        elif name in ("Huế", "Hue") or "hue" in name.lower() or hc_key == "vn-tt":
+            c_name = "Thừa Thiên Huế"
+            iso = "VN-26"
+        elif "chi minh" in name.lower() or hc_key == "vn-hc":
+            c_name = "TP. Hồ Chí Minh"
+            iso = "VN-SG"
+        elif norm(name) in NORM_MAP:
+            c_name = NORM_MAP[norm(name)]
+            iso = p.get("iso_3166_2")
+        elif norm(p.get("woe-name", "")) in NORM_MAP:
+            c_name = NORM_MAP[norm(p.get("woe-name", ""))]
+            iso = p.get("iso_3166_2")
+        else:
+            c_name = name
+            iso = p.get("iso_3166_2")
+
         new_f = {
             "type": "Feature",
             "properties": {
-                "name": p.get("name"),
-                "name_local": p.get("woe-name"),
-                "iso_3166_2": p.get("iso_3166_2"),
-                "hc-key": p.get("hc-key"),
+                "name": c_name,
+                "name_local": c_name,
+                "iso_3166_2": iso,
+                "hc-key": hc_key,
             },
         }
         g = f["geometry"]
@@ -77,8 +121,8 @@ def main() -> None:
 
     out = {
         "type": "FeatureCollection",
-        "title": "Vietnam provinces (WGS84)",
-        "note": "Converted from Highcharts vn-all.geo.json (UTM48N -> EPSG:4326) for Leaflet.",
+        "title": "Vietnam provinces (WGS84) - Full 63 Provinces",
+        "note": "Converted from Highcharts vn-all.geo.json with all 63 provinces mapped to standard names.",
         "source": SOURCE_URL,
         "features": features,
     }

@@ -6,13 +6,15 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   AlertTriangle, ArrowRight, Briefcase, Calendar, Car, CheckCircle,
   ClipboardList, Clock, CreditCard, Download, ExternalLink, FileText, Heart, Home, Info,
-  Loader2, Mail, MapPin, Receipt, RefreshCw, Shield, ShieldCheck, Trash2, User as UserIcon, Wallet, X,
+  Loader2, Mail, MapPin, Receipt, RefreshCw, Shield, ShieldCheck, Trash2, User as UserIcon, UserCheck, Wallet, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { PolicyTermsModal } from '@/components/policies/PolicyTermsModal';
+import { PolicyPurchaseWizard } from '@/components/policies/PolicyPurchaseWizard';
 import api from '@/lib/api';
+import { getRelationshipLabel } from '@/lib/policy-helpers';
 import type { Claim, PaymentSummary, PolicyPayment, User, UserPolicy } from '@/types';
 
 type PolicyType = 'health' | 'life' | 'property' | 'vehicle' | 'disaster' | 'income';
@@ -62,13 +64,18 @@ export function PoliciesClient() {
   const t = useTranslations('policies');
   const locale = useLocale();
 
-  const [tab, setTab] = useState<TabKey>('mine');
+  const [tab, setTab] = useState<TabKey>('browse');
   const [policies, setPolicies] = useState<UserPolicy[]>([]);
   const [plans, setPlans] = useState<PlansData | null>(null);
   const [me, setMe] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPolicy, setSelectedPolicy] = useState<UserPolicy | null>(null);
   const [termsCategory, setTermsCategory] = useState<PolicyType | null>(null);
+  const [purchaseModal, setPurchaseModal] = useState<{ open: boolean; type: PolicyType; planIdx: number }>({
+    open: false,
+    type: 'health',
+    planIdx: 0,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,44 +112,42 @@ export function PoliciesClient() {
   const activeCount = useMemo(() => policies.filter((p) => p.status === 'active').length, [policies]);
   const historyCount = useMemo(() => policies.filter((p) => p.status !== 'active').length, [policies]);
 
-  // Auto-redirect away from history tab if it becomes empty (e.g. after page reload with no history)
-  useEffect(() => {
-    if (tab === 'history' && historyCount === 0) setTab('mine');
-  }, [tab, historyCount]);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Shield size={22} className="text-blue-600" /> {t('title')}
-        </h1>
+        <div>
+          <span className="inline-block text-[11px] font-bold uppercase tracking-wider text-[#2e96ff] bg-[#eef6ff] px-2.5 py-0.5 rounded-full border border-[#2e96ff]/20 mb-1">
+            {t('tabMine')}
+          </span>
+          <h1 className="text-2xl font-bold text-[#13426f] flex items-center gap-2">
+            <Shield size={22} className="text-[#2e96ff]" /> {t('title')}
+          </h1>
+        </div>
         <Link
           href={`/${locale}/claims`}
-          className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+          className="text-xs md:text-sm font-semibold text-[#13426f] bg-white border border-[#d0d5dd] hover:border-[#2e96ff] hover:text-[#2e96ff] px-4 py-2 rounded-full shadow-xs flex items-center gap-1.5 transition-all"
         >
-          <ClipboardList size={14} /> {t('viewClaims')}
+          <ClipboardList size={14} className="text-[#2e96ff]" /> {t('viewClaims')}
         </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard label={t('totalPolicies')} value={stats.total} icon={Shield} />
         <StatCard label={t('totalCoverage')} value={fmtVND(stats.coverage)} icon={CheckCircle} accent="green" />
         <StatCard label={t('totalPremium')} value={fmtVND(stats.premium)} icon={Wallet} accent="orange" />
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 flex gap-1">
+      {/* Tabs: Relief Pill Container */}
+      <div className="inline-flex bg-white/80 p-1.5 rounded-full border border-[#d0d5dd] gap-1 shadow-xs">
+        <TabBtn active={tab === 'browse'} onClick={() => setTab('browse')} icon={Info}>
+          {t('tabBrowseRef')}
+        </TabBtn>
         <TabBtn active={tab === 'mine'} onClick={() => setTab('mine')} icon={Briefcase}>
           {t('tabMine')} ({activeCount})
         </TabBtn>
-        {historyCount > 0 && (
-          <TabBtn active={tab === 'history'} onClick={() => setTab('history')} icon={Clock}>
-            {t('tabHistory')} ({historyCount})
-          </TabBtn>
-        )}
-        <TabBtn active={tab === 'browse'} onClick={() => setTab('browse')} icon={Info}>
-          {t('tabBrowseRef')}
+        <TabBtn active={tab === 'history'} onClick={() => setTab('history')} icon={Clock}>
+          {t('tabHistory')} ({historyCount})
         </TabBtn>
       </div>
 
@@ -159,6 +164,7 @@ export function PoliciesClient() {
           plans={plans}
           ownedTypes={ownedActiveTypes}
           onViewTerms={setTermsCategory}
+          onPurchase={(type) => setPurchaseModal({ open: true, type, planIdx: 0 })}
         />
       )}
 
@@ -178,6 +184,17 @@ export function PoliciesClient() {
           onClose={() => setTermsCategory(null)}
           // Stack above PolicyDetailModal when both open
           zIndexClass={selectedPolicy ? 'z-[60]' : 'z-50'}
+        />
+      )}
+
+      {purchaseModal.open && (
+        <PolicyPurchaseWizard
+          initialType={purchaseModal.type}
+          onClose={() => setPurchaseModal({ open: false, type: 'health', planIdx: 0 })}
+          onSuccess={() => {
+            setPurchaseModal({ open: false, type: 'health', planIdx: 0 });
+            load();
+          }}
         />
       )}
     </div>
@@ -341,50 +358,57 @@ function PolicyRow({ policy, onClick }: { policy: UserPolicy; onClick: () => voi
     <button
       type="button"
       onClick={onClick}
-      className="group w-full text-left bg-white border rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex items-stretch"
+      className="group w-full text-left bg-white border border-[#d0d5dd] rounded-[22px] overflow-hidden hover:shadow-[0_7px_0_0_rgba(154,207,246,0.5)] hover:border-[#2e96ff] transition-all flex items-stretch shadow-xs"
     >
       {/* Left: gradient icon block (wider for active) */}
       <div className={`bg-gradient-to-br ${gradient} text-white flex flex-col items-center justify-center px-4 shrink-0 ${isActive ? 'w-24' : 'w-20'}`}>
         <Icon size={isActive ? 28 : 24} />
-        {isActive && <p className="text-[9px] text-white/80 uppercase tracking-wider mt-1">{t('active')}</p>}
+        {isActive && <p className="text-[9px] font-bold text-white/90 uppercase tracking-wider mt-1">{t('active')}</p>}
       </div>
 
       {/* Middle: name + meta */}
-      <div className="flex-1 min-w-0 px-4 py-3">
+      <div className="flex-1 min-w-0 px-5 py-4">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <h3 className={`font-semibold text-sm truncate ${isActive ? 'text-gray-900' : 'text-gray-700'}`}>
+          <h3 className={`font-bold text-base truncate ${isActive ? 'text-[#13426f]' : 'text-gray-700'}`}>
             {policy.plan_name}
           </h3>
-          <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border whitespace-nowrap ${statusCls[policy.status] ?? statusCls.active}`}>
+          <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border whitespace-nowrap ${statusCls[policy.status] ?? statusCls.active}`}>
             {statusLabel[policy.status] ?? policy.status}
           </span>
           {daysLeft != null && (
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${daysChipCls}`}>
+            <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${daysChipCls}`}>
               {daysLeft > 0 ? t('expiresInDays', { days: daysLeft }) : t('expired7d')}
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 truncate">
-          {tClaims(`claimTypes.${policy.policy_type}` as never)} · <span className="font-mono">{policy.policy_number}</span>
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
+        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+          <p className="text-xs text-[#4a5568] truncate">
+            {tClaims(`claimTypes.${policy.policy_type}` as never)} · <span className="font-mono text-gray-500 font-medium">{policy.policy_number}</span>
+          </p>
+          {policy.insured_person?.name && (
+            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#eef6ff] text-[#2e96ff] border border-[#2e96ff]/20">
+              👤 Cho: {policy.insured_person.name} ({getRelationshipLabel(policy.insured_person.relationship)})
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5 font-medium">
           {startDate.toLocaleDateString()} — {endDate.toLocaleDateString()}
         </p>
       </div>
 
       {/* Right: coverage + premium + chevron */}
-      <div className="px-4 py-3 flex flex-col items-end justify-center border-l shrink-0 min-w-[160px]">
-        <p className="text-[10px] text-gray-400 uppercase tracking-wide">{t('coverage')}</p>
-        <p className={`text-sm font-bold ${isActive ? 'text-gray-900' : 'text-gray-700'}`}>
+      <div className="px-5 py-4 flex flex-col items-end justify-center border-l border-[#d0d5dd] shrink-0 min-w-[170px] bg-[#f9f7f0]/30">
+        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">{t('coverage')}</p>
+        <p className={`text-base font-bold ${isActive ? 'text-[#13426f]' : 'text-gray-700'}`}>
           {fmtVND(policy.coverage_amount)}
         </p>
         {isActive && (
-          <p className="text-[10px] text-gray-500 mt-0.5">
-            {t('premium')}: <span className="font-medium text-gray-700">{fmtVND(policy.annual_premium)}/{t('yearShort')}</span>
+          <p className="text-[11px] text-gray-500 mt-0.5 font-medium">
+            {t('premium')}: <span className="font-bold text-[#13426f]">{fmtVND(policy.annual_premium)}/{t('yearShort')}</span>
           </p>
         )}
-        <div className={`text-xs font-medium flex items-center gap-1 mt-1.5 group-hover:gap-2 transition-all ${isCancelled ? 'text-gray-500' : 'text-blue-600'}`}>
-          {t('viewDetails')} <ArrowRight size={11} />
+        <div className={`text-xs font-bold flex items-center gap-1 mt-2 group-hover:gap-2 transition-all ${isCancelled ? 'text-gray-400' : 'text-[#2e96ff]'}`}>
+          {t('viewDetails')} <ArrowRight size={12} />
         </div>
       </div>
     </button>
@@ -462,18 +486,19 @@ function PolicyDetailModal({
     ? Math.min(100, Math.max(0, ((totalDays - (daysLeft ?? 0)) / totalDays) * 100))
     : 0;
 
-  // Tạm thời filter claims theo claim_type (chưa có policy_id field) — đợi TASK-027
+  // Lọc claims chính xác theo policy_id của hợp đồng này (tránh tính nhầm claims của hợp đồng khác cùng loại)
   useEffect(() => {
     let mounted = true;
+    setLoadingClaims(true);
     api.get<Claim[]>('/claims')
       .then((r) => {
         if (!mounted) return;
-        setRelated(r.data.filter((c) => c.claim_type === policy.policy_type));
+        setRelated(r.data.filter((c) => c.policy_id === policy.id));
       })
       .catch(() => {})
       .finally(() => mounted && setLoadingClaims(false));
     return () => { mounted = false; };
-  }, [policy.policy_type]);
+  }, [policy.id]);
 
   // Tính coverage còn lại từ claims đã approved
   const usedCoverage = related
@@ -505,18 +530,18 @@ function PolicyDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-[26px] border border-[#d0d5dd] max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className={`bg-gradient-to-br ${gradient} p-6 text-white relative`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
           >
             <X size={16} />
           </button>
@@ -576,13 +601,94 @@ function PolicyDetailModal({
             <p className="text-sm text-gray-600 italic">{policy.description}</p>
           )}
 
-          {/* Buyer info — người đăng ký */}
+          {/* Insured person info — Người được bảo hiểm */}
+          {policy.insured_person?.name && (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <UserCheck size={14} className="text-emerald-600" /> {t('insuredPersonTitle')}
+              </h3>
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg p-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <UserIcon size={14} className="text-emerald-600" />
+                    <span className="text-gray-500">{t('insuredName')}:</span>
+                    <span className="font-semibold text-gray-900">{policy.insured_person.name}</span>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    {getRelationshipLabel(policy.insured_person.relationship)}
+                  </span>
+                </div>
+                {policy.insured_person.dob && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar size={13} className="text-emerald-600" />
+                    <span className="text-gray-500">{t('insuredDob')}:</span>
+                    <span className="font-medium text-gray-900">{policy.insured_person.dob}</span>
+                  </div>
+                )}
+                {policy.insured_person.id_number && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Shield size={13} className="text-emerald-600" />
+                    <span className="text-gray-500">{t('insuredId')}:</span>
+                    <span className="font-mono font-medium text-gray-900">{policy.insured_person.id_number}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Subject details — Thông tin đối tượng bảo hiểm (tài sản, phương tiện, nông nghiệp, thiên tai) */}
+          {policy.subject_details && Object.keys(policy.subject_details).length > 0 && (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <FileText size={14} className="text-blue-600" /> {t('subjectDetailsTitle')}
+              </h3>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+                {policy.subject_details.address && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin size={13} className="text-gray-500" />
+                    <span className="text-gray-500">{t('assetAddress')}:</span>
+                    <span className="font-medium text-gray-900">{policy.subject_details.address}</span>
+                  </div>
+                )}
+                {policy.subject_details.license_plate && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Car size={13} className="text-gray-500" />
+                    <span className="text-gray-500">{t('licensePlate')}:</span>
+                    <span className="font-mono font-bold text-gray-900">{policy.subject_details.license_plate}</span>
+                  </div>
+                )}
+                {(policy.subject_details.brand || policy.subject_details.model) && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Car size={13} className="text-gray-500" />
+                    <span className="text-gray-500">{t('vehicleBrand')}:</span>
+                    <span className="font-medium text-gray-900">{[policy.subject_details.brand, policy.subject_details.model].filter(Boolean).join(' ')}</span>
+                  </div>
+                )}
+                {policy.subject_details.disaster_plan && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <AlertTriangle size={13} className="text-amber-500" />
+                    <span className="text-gray-500">{t('disasterSubPlan')}:</span>
+                    <span className="font-medium text-gray-900">{policy.subject_details.disaster_plan}</span>
+                  </div>
+                )}
+                {policy.subject_details.crop_type && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle size={13} className="text-emerald-500" />
+                    <span className="text-gray-500">{t('cropType')}:</span>
+                    <span className="font-medium text-gray-900">{policy.subject_details.crop_type}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Buyer info — người đăng ký / chủ tài khoản */}
           {buyer && (
             <section>
               <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <UserIcon size={14} className="text-blue-600" /> {t('buyerInfo')}
               </h3>
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-2">
+              <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-4 space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <UserIcon size={13} className="text-blue-500" />
                   <span className="text-gray-500">{t('buyerName')}:</span>
@@ -729,14 +835,14 @@ function PolicyDetailModal({
         </div>
 
         {/* Footer actions */}
-        <div className="border-t bg-gray-50 px-6 py-4 flex flex-wrap gap-2 justify-end">
+        <div className="border-t border-[#d0d5dd] bg-[#f9f7f0] px-6 py-4 flex flex-wrap gap-2.5 justify-end">
           <Button
             variant="outline"
             size="sm"
             onClick={onViewTerms}
-            className="text-blue-700 border-blue-200 hover:bg-blue-50"
+            className="rounded-full text-[#13426f] border-[#d0d5dd] bg-white hover:bg-[#eef6ff] font-semibold"
           >
-            <Info size={14} className="mr-2" /> {t('viewTerms')}
+            <Info size={14} className="mr-1.5 text-[#2e96ff]" /> {t('viewTerms')}
           </Button>
           <Button
             variant="outline"
@@ -744,18 +850,18 @@ function PolicyDetailModal({
             onClick={downloadContract}
             disabled={downloadingPdf}
             title={t('downloadContractHint')}
-            className="text-blue-700 border-blue-200 hover:bg-blue-50"
+            className="rounded-full text-[#13426f] border-[#d0d5dd] bg-white hover:bg-[#eef6ff] font-semibold"
           >
             {downloadingPdf
-              ? <Loader2 size={14} className="mr-2 animate-spin" />
-              : <Download size={14} className="mr-2" />}
+              ? <Loader2 size={14} className="mr-1.5 animate-spin" />
+              : <Download size={14} className="mr-1.5 text-[#2e96ff]" />}
             {downloadingPdf ? t('downloadingContract') : t('downloadContract')}
           </Button>
           <Link
             href={`/${locale}/claims`}
-            className="inline-flex items-center px-3 py-1.5 rounded-md border bg-white text-sm hover:bg-gray-100"
+            className="inline-flex items-center px-4 py-2 rounded-full border border-[#d0d5dd] bg-white text-xs font-semibold text-[#13426f] hover:bg-gray-50 transition-colors"
           >
-            <ExternalLink size={14} className="mr-2" /> {t('viewClaims')}
+            <ExternalLink size={14} className="mr-1.5 text-[#2e96ff]" /> {t('viewClaims')}
           </Link>
           {policy.status !== 'cancelled' && policy.status !== 'voided' && (
             <Button
@@ -763,9 +869,9 @@ function PolicyDetailModal({
               size="sm"
               onClick={renewPolicy}
               disabled={renewing}
-              className="text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+              className="rounded-full text-emerald-700 bg-white hover:bg-emerald-50 border-emerald-300 font-semibold"
             >
-              {renewing ? <Loader2 className="animate-spin mr-2" size={14} /> : <RefreshCw size={14} className="mr-2" />}
+              {renewing ? <Loader2 className="animate-spin mr-1.5" size={14} /> : <RefreshCw size={14} className="mr-1.5" />}
               {t('renewBtn')}
             </Button>
           )}
@@ -775,9 +881,9 @@ function PolicyDetailModal({
               size="sm"
               onClick={cancelPolicy}
               disabled={cancelling}
-              className="text-red-600 hover:bg-red-50 border-red-200"
+              className="rounded-full text-red-600 bg-white hover:bg-red-50 border-red-300 font-semibold"
             >
-              {cancelling ? <Loader2 className="animate-spin mr-2" size={14} /> : <Trash2 size={14} className="mr-2" />}
+              {cancelling ? <Loader2 className="animate-spin mr-1.5" size={14} /> : <Trash2 size={14} className="mr-1.5" />}
               {t('cancelBtn')}
             </Button>
           )}
@@ -902,11 +1008,12 @@ function PaymentSchedule({ policyId }: { policyId: string }) {
 // ── Browse reference plans (no buy) ───────────────────────────────────────────
 
 function BrowseReferencePlans({
-  plans, ownedTypes, onViewTerms,
+  plans, ownedTypes, onViewTerms, onPurchase,
 }: {
   plans: PlansData | null;
   ownedTypes: Set<string>;
   onViewTerms: (cat: PolicyType) => void;
+  onPurchase: (cat: PolicyType, planIdx: number) => void;
 }) {
   const t = useTranslations('policies');
   const tClaims = useTranslations('claims');
@@ -921,18 +1028,20 @@ function BrowseReferencePlans({
 
   return (
     <div className="space-y-6">
-      {/* CTA Banner */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-          <FileText size={18} />
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 mb-1">{t('purchaseFlowTitle')}</h3>
-          <p className="text-sm text-gray-700 leading-relaxed">{t('purchaseFlowHint')}</p>
+      {/* CTA Banner: Deep Harbor */}
+      <div className="bg-[#13426f] text-white border border-[#0d2d4c] rounded-[24px] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-[#2e96ff]/20 text-[#2e96ff] border border-[#2e96ff]/30 flex items-center justify-center shrink-0">
+            <FileText size={22} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-white mb-1">{t('purchaseFlowTitle')}</h3>
+            <p className="text-sm text-white/80 leading-relaxed max-w-2xl">{t('purchaseFlowHint')}</p>
+          </div>
         </div>
         <Link
           href={`/${locale}/documents`}
-          className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+          className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2e96ff] text-white text-sm font-bold shadow-[0_4px_0_0_rgba(154,207,246,0.5)] hover:bg-[#2582df] transition-all"
         >
           {t('goToDocuments')} <ArrowRight size={14} />
         </Link>
@@ -940,8 +1049,8 @@ function BrowseReferencePlans({
 
       {/* Type selector */}
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-3">{t('selectType')}</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">{t('selectType')}</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {POLICY_TYPES.map((type) => {
             const Icon = TYPE_ICONS[type];
             const isSelected = selectedType === type;
@@ -950,19 +1059,19 @@ function BrowseReferencePlans({
               <button
                 key={type}
                 onClick={() => setSelectedType(type)}
-                className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                className={`relative flex flex-col items-center gap-1.5 p-3.5 rounded-[18px] border-2 transition-all ${
                   isSelected
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 bg-white hover:border-blue-200'
+                    ? 'border-[#2e96ff] bg-[#eef6ff] shadow-[0_4px_0_0_rgba(154,207,246,0.5)]'
+                    : 'border-[#d0d5dd] bg-white hover:border-[#2e96ff]/50'
                 }`}
               >
                 {owned && (
-                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-green-500 text-white flex items-center justify-center">
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center">
                     <CheckCircle size={10} />
                   </span>
                 )}
-                <Icon size={20} className={isSelected ? 'text-blue-600' : 'text-gray-500'} />
-                <span className={`text-xs font-medium text-center leading-tight ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>
+                <Icon size={20} className={isSelected ? 'text-[#2e96ff]' : 'text-gray-500'} />
+                <span className={`text-xs font-bold text-center leading-tight ${isSelected ? 'text-[#13426f]' : 'text-[#4a5568]'}`}>
                   {tClaims(`claimTypes.${type}` as never)}
                 </span>
               </button>
@@ -974,65 +1083,66 @@ function BrowseReferencePlans({
       {/* Plans (read-only catalog) */}
       <div>
         <div className="flex justify-between items-center mb-3">
-          <h2 className="font-semibold text-gray-900">
+          <h2 className="font-bold text-lg text-[#13426f]">
             {tClaims(`claimTypes.${selectedType}` as never)}
           </h2>
           {ownedTypes.has(selectedType) && (
-            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full flex items-center gap-1">
-              <AlertTriangle size={11} /> {t('alreadyOwned')}
+            <span className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full flex items-center gap-1.5">
+              <AlertTriangle size={12} /> {t('alreadyOwned')}
             </span>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {typePlans.map((plan, idx) => {
             const gradient = TYPE_COLORS[selectedType];
             const isPopular = idx === 1;
             return (
               <div
                 key={idx}
-                className={`relative bg-white border rounded-xl overflow-hidden flex flex-col ${
-                  isPopular ? 'border-blue-400 shadow-md' : ''
+                className={`relative bg-white border border-[#d0d5dd] rounded-[22px] overflow-hidden flex flex-col transition-all shadow-[0_4px_14px_rgba(0,0,0,0.04)] hover:shadow-[0_7px_0_0_rgba(154,207,246,0.5)] hover:border-[#2e96ff] ${
+                  isPopular ? 'border-[#2e96ff]' : ''
                 }`}
               >
                 {isPopular && (
                   <div className="absolute top-3 right-3">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#2e96ff] text-white shadow-xs">
                       ★ {t('popularBadge')}
                     </span>
                   </div>
                 )}
-                <div className={`h-2 bg-gradient-to-r ${gradient}`} />
+                <div className={`h-2.5 bg-gradient-to-r ${gradient}`} />
 
-                <div className="p-5 flex-1 flex flex-col">
-                  <h3 className="font-bold text-lg">{plan.plan_name}</h3>
+                <div className="p-6 flex-1 flex flex-col">
+                  <h3 className="font-bold text-lg text-[#13426f]">{plan.plan_name}</h3>
                   {plan.description && (
-                    <p className="text-xs text-gray-500 mt-1 mb-4 leading-relaxed">{plan.description}</p>
+                    <p className="text-xs text-gray-500 mt-1 mb-4 leading-relaxed font-normal">{plan.description}</p>
                   )}
 
-                  <div className="mt-auto space-y-2 mb-4">
-                    <div className="text-xs text-gray-500">{t('coverage')}</div>
-                    <div className="text-xl font-bold text-gray-900">{fmtVND(plan.coverage_amount)}</div>
-                    <div className="border-t pt-2">
+                  <div className="mt-auto space-y-2 mb-5 bg-[#f9f7f0]/60 p-4 rounded-[16px] border border-[#d0d5dd]">
+                    <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{t('coverage')}</div>
+                    <div className="text-xl font-bold text-[#13426f]">{fmtVND(plan.coverage_amount)}</div>
+                    <div className="border-t border-[#d0d5dd] pt-2">
                       <span className="text-xs text-gray-500">{t('premium')}: </span>
-                      <span className="font-semibold text-blue-700">{fmtVND(plan.annual_premium)}</span>
+                      <span className="font-bold text-[#2e96ff]">{fmtVND(plan.annual_premium)}</span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <button
                       type="button"
+                      onClick={() => onPurchase(selectedType, idx)}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[#2e96ff] text-white text-sm font-bold hover:bg-[#2582df] shadow-[0_4px_0_0_rgba(154,207,246,0.5)] active:translate-y-[1px] active:shadow-xs transition-all"
+                    >
+                      <ShieldCheck size={16} /> Đăng ký gói này
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => onViewTerms(selectedType)}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50"
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-[#0d2d4c] bg-white text-[#13426f] text-xs font-semibold hover:bg-[#eef6ff] transition-all"
                     >
                       <Info size={14} /> {t('viewTerms')}
                     </button>
-                    <Link
-                      href={`/${locale}/documents`}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-                    >
-                      <FileText size={14} /> {t('registerFromDocs')} <ArrowRight size={12} />
-                    </Link>
                   </div>
                 </div>
               </div>
@@ -1054,10 +1164,10 @@ function TabBtn({ active, onClick, icon: Icon, children }: {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+      className={`flex items-center gap-2 px-4 py-2 text-xs md:text-sm font-bold rounded-full transition-all ${
         active
-          ? 'border-blue-600 text-blue-600'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
+          ? 'bg-[#2e96ff] text-white shadow-[0_4px_0_0_rgba(154,207,246,0.5)]'
+          : 'text-[#4a5568] hover:text-[#13426f] hover:bg-[#f9f7f0]'
       }`}
     >
       <Icon size={15} /> {children}
@@ -1069,18 +1179,18 @@ function StatCard({ label, value, icon: Icon, accent }: {
   label: string; value: string | number; icon: typeof Heart;
   accent?: 'green' | 'orange';
 }) {
-  const color = accent === 'green' ? 'text-green-600 bg-green-50'
-    : accent === 'orange' ? 'text-orange-600 bg-orange-50'
-    : 'text-blue-600 bg-blue-50';
+  const color = accent === 'green' ? 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+    : accent === 'orange' ? 'text-amber-600 bg-amber-50 border border-amber-200'
+    : 'text-[#2e96ff] bg-[#eef6ff] border border-[#2e96ff]/20';
   return (
-    <div className="bg-white border rounded-xl p-4">
+    <div className="bg-white border border-[#d0d5dd] rounded-[22px] p-5 shadow-[0_4px_14px_rgba(0,0,0,0.04)] hover:shadow-[0_7px_0_0_rgba(154,207,246,0.5)] hover:border-[#2e96ff] transition-all">
       <div className="flex justify-between items-start mb-2">
-        <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${color}`}>
-          <Icon size={14} />
+        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${color}`}>
+          <Icon size={15} />
         </div>
       </div>
-      <p className="text-xl font-bold text-gray-900">{value}</p>
+      <p className="text-2xl font-bold text-[#13426f]">{value}</p>
     </div>
   );
 }
@@ -1088,12 +1198,12 @@ function StatCard({ label, value, icon: Icon, accent }: {
 function BreakdownCard({ label, value, accent }: {
   label: string; value: string; accent: 'blue' | 'green' | 'orange';
 }) {
-  const cls = accent === 'green' ? 'bg-green-50 text-green-700 border-green-200'
-    : accent === 'orange' ? 'bg-orange-50 text-orange-700 border-orange-200'
-    : 'bg-blue-50 text-blue-700 border-blue-200';
+  const cls = accent === 'green' ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+    : accent === 'orange' ? 'bg-amber-50 text-amber-800 border-amber-200'
+    : 'bg-[#eef6ff] text-[#13426f] border-[#2e96ff]/20';
   return (
-    <div className={`border rounded-lg p-3 ${cls}`}>
-      <p className="text-[10px] uppercase tracking-wide opacity-80">{label}</p>
+    <div className={`border rounded-[16px] p-3.5 ${cls}`}>
+      <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</p>
       <p className="text-base font-bold mt-1 break-words">{value}</p>
     </div>
   );

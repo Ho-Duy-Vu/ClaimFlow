@@ -16,8 +16,14 @@ async def init_db(mongodb_url: str, db_name: str):
     from app.models.ocr_bundle import OCRBundle
     from app.models.notification import Notification
     from app.models.payment import Payment
+    from app.models.partner import Partner
+    from app.models.underwriting_rule import UnderwritingRule
 
     await init_beanie(
         database=client[db_name],
-        document_models=[User, Document, Claim, GeoRisk, ChatSession, Policy, AuditLog, UserPolicy, OCRBundle, Notification, Payment],
+        document_models=[
+            User, Document, Claim, GeoRisk, ChatSession, Policy,
+            AuditLog, UserPolicy, OCRBundle, Notification, Payment,
+            Partner, UnderwritingRule,
+        ],
     )

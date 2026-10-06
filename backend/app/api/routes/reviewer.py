@@ -62,6 +62,84 @@ async def _serialize_queue_item(c: Claim) -> dict:
                     "start_date": p.start_date.isoformat() if p.start_date else None,
                     "end_date": p.end_date.isoformat() if p.end_date else None,
                     "status": p.status,
+                    "insured_person": p.insured_person,
+                    "subject_details": p.subject_details,
+                }
+        except Exception:
+            pass
+
+    # ── Claimant 12-Month History & Velocity Risk Profile ─────────────────────
+    claimant_history: dict = {
+        "prior_claims_count": 0,
+        "prior_approved_count": 0,
+        "prior_rejected_count": 0,
+        "prior_total_paid": 0.0,
+        "has_fraud_history": False,
+        "frequency_risk": "low",
+    }
+    try:
+        twelve_months_ago = datetime.utcnow() - timedelta(days=365)
+        user_claims = await Claim.find(
+            Claim.user_id == c.user_id,
+            Claim.created_at >= twelve_months_ago,
+        ).to_list()
+        other_claims = [uc for uc in user_claims if str(uc.id) != str(c.id)]
+        claimant_history["prior_claims_count"] = len(other_claims)
+        claimant_history["prior_approved_count"] = sum(1 for uc in other_claims if uc.status == "approved")
+        claimant_history["prior_rejected_count"] = sum(1 for uc in other_claims if uc.status == "rejected")
+        claimant_history["prior_total_paid"] = sum((uc.amount_approved or 0) for uc in other_claims if uc.status == "approved")
+        claimant_history["has_fraud_history"] = any(
+            (uc.ai_fraud_score and uc.ai_fraud_score >= 70) or
+            (uc.status == "rejected" and "fraud" in (uc.reviewer_note or "").lower())
+            for uc in other_claims
+        )
+        if len(other_claims) >= 4:
+            claimant_history["frequency_risk"] = "high"
+        elif len(other_claims) >= 2:
+            claimant_history["frequency_risk"] = "moderate"
+        else:
+            claimant_history["frequency_risk"] = "low"
+    except Exception:
+        pass
+
+    # ── SLA Calculation ───────────────────────────────────────────────────────
+    sla_hours = getattr(c, "sla_hours", 48) or 48
+    sla_deadline = getattr(c, "sla_deadline", None)
+    if not sla_deadline and c.created_at:
+        sla_deadline = c.created_at + timedelta(hours=sla_hours)
+
+    remaining_seconds = 0
+    is_overdue = False
+    if sla_deadline:
+        remaining_seconds = (sla_deadline - datetime.utcnow()).total_seconds()
+        is_overdue = remaining_seconds < 0
+
+    sla_info = {
+        "sla_hours": sla_hours,
+        "sla_deadline": sla_deadline.isoformat() if sla_deadline else None,
+        "remaining_seconds": int(remaining_seconds),
+        "is_overdue": is_overdue,
+    }
+
+    # ── Partner Info (If linked) ──────────────────────────────────────────────
+    partner_info = None
+    if getattr(c, "partner_id", None):
+        try:
+            from app.models.partner import Partner
+            part = await Partner.get(c.partner_id)
+            if part:
+                partner_info = {
+                    "id": str(part.id),
+                    "name": part.name,
+                    "partner_type": part.partner_type,
+                    "province": part.province,
+                    "address": part.address,
+                    "phone": part.phone,
+                    "hotline": part.hotline,
+                    "cashless_supported": part.cashless_supported,
+                    "guarantee_status": getattr(c, "partner_guarantee_status", "requested"),
+                    "service_type": getattr(c, "partner_service_type", None),
+                    "notes": getattr(c, "partner_notes", None),
                 }
         except Exception:
             pass
@@ -96,9 +174,13 @@ async def _serialize_queue_item(c: Claim) -> dict:
         "ai_fraud_score": c.ai_fraud_score,
         "ai_fraud_flags": c.ai_fraud_flags,
         "ai_parsed_data": c.ai_parsed_data,
+        "damage_assessment": c.damage_assessment,
         # Human review state
         "reviewer_id": c.reviewer_id,
         "reviewer_note": c.reviewer_note,
+        "internal_note": getattr(c, "internal_note", None),
+        "customer_notice": getattr(c, "customer_notice", None),
+        "adjustment_items": getattr(c, "adjustment_items", []) or [],
         "reviewed_at": c.reviewed_at.isoformat() if c.reviewed_at else None,
         # Reviewer v2 — partial approval + request more info (TASK-029)
         "is_partial_approval": c.is_partial_approval,
@@ -121,6 +203,10 @@ async def _serialize_queue_item(c: Claim) -> dict:
         ],
         "created_at": c.created_at.isoformat(),
         "waiting_seconds": int(waiting_seconds),
+        # Enterprise Cockpit Additions
+        "claimant_history": claimant_history,
+        "sla": sla_info,
+        "partner": partner_info,
     }
 
 

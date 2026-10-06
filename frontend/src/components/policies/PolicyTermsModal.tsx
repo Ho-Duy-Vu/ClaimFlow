@@ -75,56 +75,56 @@ export function PolicyTermsModal({ category, onClose, zIndexClass = 'z-50' }: Pr
 
   return (
     <div
-      className={`fixed inset-0 ${zIndexClass} bg-black/50 flex items-center justify-center p-4`}
+      className={`fixed inset-0 ${zIndexClass} bg-black/50 backdrop-blur-xs flex items-center justify-center p-4`}
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-[26px] max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col border border-[#d0d5dd] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`bg-gradient-to-br ${gradient} p-5 text-white relative`}>
+        <div className="bg-[#13426f] p-6 text-white relative border-b border-white/10">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center"
+            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors"
           >
             <X size={16} />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-              <Icon size={22} />
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-full bg-[#2e96ff] flex items-center justify-center shadow-xs">
+              <Icon size={24} className="text-white" />
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-white/80">
+              <p className="text-xs uppercase tracking-wider font-bold text-[#bde1f9]">
                 {tClaims(`claimTypes.${category}` as never)}
               </p>
-              <h2 className="text-lg font-bold mt-0.5">
+              <h2 className="text-xl font-bold mt-0.5 tracking-tight">
                 {data?.title ?? t('viewTerms')}
               </h2>
               {data && (
-                <p className="text-[11px] text-white/70 mt-1">
-                  v{data.version} · {t('lastUpdated')}: {new Date(data.last_updated).toLocaleDateString()}
+                <p className="text-xs text-white/70 mt-1">
+                  v{data.version} · {t('lastUpdated')}: {new Date(data.last_updated).toLocaleDateString('vi-VN')}
                 </p>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-white text-[#333333]">
           {loading && (
-            <div className="text-center py-12">
-              <Loader2 className="inline animate-spin text-blue-600" size={24} />
+            <div className="text-center py-16">
+              <Loader2 className="inline animate-spin text-[#2e96ff]" size={28} />
             </div>
           )}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 flex items-start gap-2">
-              <Info size={14} className="mt-0.5 shrink-0" /> {error}
+            <div className="bg-red-50 border border-red-200 rounded-[16px] p-4 text-sm text-red-700 flex items-start gap-2">
+              <Info size={16} className="mt-0.5 shrink-0" /> {error}
             </div>
           )}
           {data && !loading && <MarkdownView content={data.content} />}
         </div>
 
-        <div className="border-t bg-gray-50 px-6 py-3 flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="border-t border-[#d0d5dd] bg-[#f9f7f0] px-6 py-4 flex justify-end shrink-0">
+          <Button variant="outline" size="sm" onClick={onClose} className="rounded-full border-[#d0d5dd] text-[#13426f] hover:bg-white font-bold px-6">
             {t('closeBtn')}
           </Button>
         </div>

@@ -37,7 +37,7 @@ export function ThemeSwitcher() {
       onClick={toggle}
       aria-label={theme === 'dark' ? t('lightMode') : t('darkMode')}
       title={theme === 'dark' ? t('lightMode') : t('darkMode')}
-      className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+      className="w-8.5 h-8.5 flex items-center justify-center rounded-full text-[#13426f] hover:bg-[#bde1f9]/40 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
     >
       {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
     </button>

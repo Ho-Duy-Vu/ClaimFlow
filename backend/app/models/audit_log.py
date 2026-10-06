@@ -13,9 +13,12 @@ class AuditLog(Document):
     action: Literal[
         "role_change", "user_deactivate", "user_activate",
         "policy_upload", "policy_delete",
-        "claim_override", "login_failed", "login_success"
-    ]
-    target_type: Literal["user", "policy", "claim"]
+        "claim_override", "login_failed", "login_success",
+        "underwriting_rules_updated", "partner_dispatched",
+        "admin_signoff_approved", "admin_signoff_rejected",
+        "partner_created", "partner_updated", "partner_deleted",
+    ] | str
+    target_type: Literal["user", "policy", "claim", "partner", "system_config"] | str
     target_id: str
     details: dict = {}
     ip_address: str | None = None
